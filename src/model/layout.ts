@@ -4,6 +4,15 @@ type V3 = [number, number, number];
 
 const PHI = (1 + Math.sqrt(5)) / 2;
 const HEX_AREA_FACTOR = (2 * Math.sqrt(3)) / Math.PI; // hexagon area / inscribed-circle area
+const PENT_AREA_FACTOR = (5 * Math.tan(Math.PI / 5)) / Math.PI; // pentagon area / inscribed-circle area
+
+/** per-dimple outline for hex layouts */
+export const KIND_DEFAULT = 0, KIND_ROUND = 2, KIND_PENT = 3;
+
+function areaFactor(shape: DesignParams['shape'], kind: number, micro: boolean) {
+  if (micro || shape !== 'hex' || kind === KIND_ROUND) return 1;
+  return kind === KIND_PENT ? PENT_AREA_FACTOR : HEX_AREA_FACTOR;
+}
 
 // ---------------------------------------------------------------------------
 // Dimple cross-section profiles. rho is the normalized radial coordinate
@@ -210,6 +219,8 @@ export interface DimpleLayout {
   radii: Float32Array; // angular radius (rad)
   depths: Float32Array; // effective depth, inches
   isMicro: Uint8Array;
+  /** KIND_DEFAULT, KIND_ROUND (round dimple in a hex layout) or KIND_PENT (pentagon at a 5-neighbor site) */
+  kinds: Uint8Array;
   clampedFraction: number;
 }
 
@@ -384,6 +395,21 @@ export function buildLayout(d: DesignParams): DimpleLayout {
   }
 
   const total = centers.length;
+  // Hex layouts: sites with only five neighbors (the 12 icosahedral vertices) become pentagons —
+  // a sphere can't be tiled with hexagons alone. A symmetric share of the rest can be round.
+  const kinds = new Uint8Array(total);
+  if (d.shape === 'hex') {
+    for (let i = 0; i < n; i++) {
+      let c = 0;
+      for (const j of nbr[i]) if (dist.get(i * n + j)! < 1.35 * nearestD[i]) c++;
+      if (c <= 5) kinds[i] = KIND_PENT;
+    }
+    const nRound = Math.round(d.roundMix * n);
+    if (nRound > 0) {
+      const order = Array.from({ length: n }, (_, i) => i).filter((i) => kinds[i] !== KIND_PENT).sort((a, b) => tiers[a] - tiers[b]);
+      for (const i of order.slice(0, nRound)) kinds[i] = KIND_ROUND;
+    }
+  }
   const C = new Float32Array(total * 3);
   const X = new Float32Array(total * 3);
   for (let i = 0; i < total; i++) {
@@ -397,7 +423,7 @@ export function buildLayout(d: DesignParams): DimpleLayout {
   }
   return {
     n, total, centers: C, axes: X,
-    radii: Float32Array.from(radii), depths: Float32Array.from(depths), isMicro: Uint8Array.from(micro.map(Number)),
+    radii: Float32Array.from(radii), depths: Float32Array.from(depths), isMicro: Uint8Array.from(micro.map(Number)), kinds,
     clampedFraction: clamped / n,
   };
 }
@@ -481,16 +507,15 @@ function bandAnisotropy(L: DimpleLayout): number {
 export function features(d: DesignParams, L: DimpleLayout): DesignFeatures {
   const o: ProfileOpts = d;
   const vf = volumeFactor(o);
-  const areaF = d.shape === 'hex' ? HEX_AREA_FACTOR : 1;
   let area = 0, vol = 0, dsum = 0, dmin = Infinity, dmax = 0, depthSum = 0;
   const microVf = volumeFactor({ ...o, shape: 'spherical' });
   for (let i = 0; i < L.total; i++) {
     const th = L.radii[i];
     const cap = 2 * Math.PI * (1 - Math.cos(th));
     const isM = L.isMicro[i] === 1;
-    const a = cap * (isM ? 1 : areaF);
+    const a = cap * areaFactor(d.shape, L.kinds[i], isM);
     area += a;
-    vol += a * BALL_RADIUS_IN * BALL_RADIUS_IN * L.depths[i] * (isM ? microVf : vf);
+    vol += a * BALL_RADIUS_IN * BALL_RADIUS_IN * L.depths[i] * (isM || L.kinds[i] === KIND_ROUND ? microVf : vf);
     if (!isM) {
       const dia = 2 * th * BALL_RADIUS_IN;
       dsum += dia; dmin = Math.min(dmin, dia); dmax = Math.max(dmax, dia);
@@ -521,9 +546,8 @@ export function features(d: DesignParams, L: DimpleLayout): DesignFeatures {
 /** Coverage for a given mean diameter (used to drive the coverage slider). */
 export function coverageAt(d: DesignParams, diameter: number): number {
   const L = buildLayout({ ...d, diameter, microDimples: false });
-  const areaF = d.shape === 'hex' ? HEX_AREA_FACTOR : 1;
   let a = 0;
-  for (let i = 0; i < L.n; i++) a += 2 * Math.PI * (1 - Math.cos(L.radii[i])) * areaF;
+  for (let i = 0; i < L.n; i++) a += 2 * Math.PI * (1 - Math.cos(L.radii[i])) * areaFactor(d.shape, L.kinds[i], false);
   return Math.min(1, a / (4 * Math.PI));
 }
 

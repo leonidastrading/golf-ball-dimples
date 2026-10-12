@@ -10,6 +10,7 @@ export interface MeshRequest {
   radii: Float32Array;
   depths: Float32Array; // inches
   isMicro: Uint8Array;
+  kinds: Uint8Array; // 0 default, 2 round, 3 pentagon
   opts: ProfileOpts;
   exaggeration: number;
   colorMode: 'white' | 'depth';
@@ -34,6 +35,8 @@ const FACES: [number[], number[], number[]][] = [
 ];
 
 const indexCache = new Map<number, Uint32Array>();
+// outward normals of a pentagon's five edges
+const PENT_DIRS = Array.from({ length: 5 }, (_, q) => [Math.cos((2 * Math.PI * q) / 5), Math.sin((2 * Math.PI * q) / 5)]);
 
 function faceIndex(res: number): Uint32Array {
   const hit = indexCache.get(res);
@@ -69,7 +72,7 @@ function ramp(t: number): number[] {
 }
 
 export function buildMesh(req: MeshRequest): MeshResult {
-  const { res, total, centers, axes, radii, depths, isMicro, opts, exaggeration } = req;
+  const { res, total, centers, axes, radii, depths, isMicro, kinds, opts, exaggeration } = req;
   const n1 = res + 1;
   const g = res + 3; // padded grid for central-difference normals
   const step = Math.PI / 2 / res;
@@ -82,6 +85,7 @@ export function buildMesh(req: MeshRequest): MeshResult {
   const hexOpts: ProfileOpts = { ...opts, shape: 'hex' };
   const microOpts: ProfileOpts = { ...opts, shape: 'spherical', wallSteepness: 0.2 };
   const COS30 = Math.sqrt(3) / 2;
+  const COS36 = Math.cos(Math.PI / 5);
 
   for (let f = 0; f < 6; f++) {
     const [N, U, V] = FACES[f];
@@ -102,8 +106,10 @@ export function buildMesh(req: MeshRequest): MeshResult {
     for (let d = 0; d < total; d++) {
       const cx = centers[d * 3], cy = centers[d * 3 + 1], cz = centers[d * 3 + 2];
       const cn = cx * N[0] + cy * N[1] + cz * N[2];
-      const hex = opts.shape === 'hex' && !isMicro[d];
-      const rr = radii[d] * (hex ? 1 / COS30 : 1); // bounding radius
+      const pent = opts.shape === 'hex' && !isMicro[d] && kinds[d] === 3;
+      const hex = opts.shape === 'hex' && !isMicro[d] && kinds[d] === 0;
+      const round = opts.shape === 'hex' && kinds[d] === 2;
+      const rr = radii[d] * (hex ? 1 / COS30 : pent ? 1 / COS36 : 1); // bounding radius
       if (cn < Math.cos(Math.PI / 2 * 0.62 + rr)) continue; // can't reach this face
       if (cn <= 1e-3) continue;
       const ca = (cx * U[0] + cy * U[1] + cz * U[2]) / cn;
@@ -119,7 +125,7 @@ export function buildMesh(req: MeshRequest): MeshResult {
       const fx = cy * ez - cz * ey, fy = cz * ex - cx * ez, fz = cx * ey - cy * ex;
       const r = radii[d];
       const depth = (depths[d] / BALL_RADIUS_IN) * exaggeration;
-      const po = isMicro[d] ? microOpts : hex ? hexOpts : opts;
+      const po = isMicro[d] || round ? microOpts : hex || pent ? hexOpts : opts;
       const cosR = Math.cos(rr);
       for (let j = j0; j <= j1; j++)
         for (let i = i0; i <= i1; i++) {
@@ -134,6 +140,10 @@ export function buildMesh(req: MeshRequest): MeshResult {
           let rho: number;
           if (hex) {
             const m = Math.max(Math.abs(x), Math.abs(0.5 * x + COS30 * y), Math.abs(-0.5 * x + COS30 * y));
+            rho = m / Math.tan(r);
+          } else if (pent) {
+            let m = -Infinity;
+            for (let q = 0; q < 5; q++) m = Math.max(m, x * PENT_DIRS[q][0] + y * PENT_DIRS[q][1]);
             rho = m / Math.tan(r);
           } else {
             rho = Math.hypot(x, y) / Math.tan(r);

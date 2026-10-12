@@ -58,6 +58,7 @@ function useBallGeometry(p: Props) {
       radii: L.radii,
       depths: L.depths,
       isMicro: L.isMicro,
+      kinds: L.kinds,
       opts: { shape: p.opts.shape, wallSteepness: p.opts.wallSteepness, innerRatio: p.opts.innerRatio, islandRatio: p.opts.islandRatio },
       exaggeration: p.exaggeration,
       colorMode: p.colorMode,

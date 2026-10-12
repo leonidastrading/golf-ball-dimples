@@ -285,6 +285,18 @@ export default function App() {
               display={`${(design.depth * 25.4 * 1000).toFixed(0)} µm`}
               onChange={(v) => set('depth', v)}
             />
+            {design.shape === 'hex' && (
+              <Slider
+                label="Round dimples mixed in"
+                value={design.roundMix * 100}
+                min={0}
+                max={50}
+                step={1}
+                unit="%"
+                onChange={(v) => set('roundMix', v / 100)}
+                hint="Callaway-style mix: hexagons, 12 pentagons at the 5-neighbor sites, and round dimples placed symmetrically. Round ones leave a little land around them."
+              />
+            )}
             {(design.shape === 'spherical' || design.shape === 'flat') && (
               <Slider label="Wall steepness" value={design.wallSteepness * 100} min={0} max={100} step={1} unit="%" onChange={(v) => set('wallSteepness', v / 100)} hint="0% = parabolic dish, 100% = flat floor with steep walls." />
             )}

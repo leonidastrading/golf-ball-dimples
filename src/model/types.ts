@@ -23,6 +23,8 @@ export interface DesignParams {
   islandRatio: number;
   /** add micro-dimples in the land area between primary dimples */
   microDimples: boolean;
+  /** hex layouts: fraction of dimples that are round instead of hexagonal */
+  roundMix: number;
   /** micro-dimple diameter as a fraction of the mean primary diameter */
   microSize: number;
   /** paint layer thickness, inches */
@@ -60,6 +62,7 @@ export const PROV1: DesignParams = {
   islandRatio: 0.35,
   microDimples: false,
   microSize: 0.3,
+  roundMix: 0,
   paintThickness: 0.0005,
   paintProcess: 'spray',
   asymmetry: 'none',
@@ -102,6 +105,10 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   {
     id: 'hex', name: 'Hexagonal (HEX-style)', note: '332 hexagonal dimples tessellate with almost no land area.',
     params: { ...PROV1, count: 332, pattern: 'icosahedral', shape: 'hex', diameter: 0.165, depth: 0.0072, sizeVariation: 0 },
+  },
+  {
+    id: 'chromesoft', name: 'Callaway Chrome Soft (2024-style)', note: 'Hexagons + 12 pentagons mixed with round dimples for flight stability (312 here; Callaway uses 332, which no icosahedral lattice produces).',
+    params: { ...PROV1, count: 312, pattern: 'icosahedral', shape: 'hex', diameter: 0.172, depth: 0.0068, sizeVariation: 0, roundMix: 0.18 },
   },
   {
     id: 'polara', name: 'Polara (non-conforming)', note: 'Deep equatorial band, shallow poles — damps hooks and slices.',
