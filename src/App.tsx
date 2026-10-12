@@ -61,7 +61,7 @@ export default function App() {
   const [colorMode, setColorMode] = useState<'white' | 'depth'>('white');
   const [autoRotate, setAutoRotate] = useState(true);
   const [showAxis, setShowAxis] = useState(false);
-  const [presetId, setPresetId] = useState<string>('prov1');
+  const [presetId, setPresetId] = useState<string>(() => (window.location.hash.length > 1 ? '' : 'prov1'));
   const [copied, setCopied] = useState(false);
 
   const set = <K extends keyof DesignParams>(k: K, v: DesignParams[K]) => { setDesign((d) => ({ ...d, [k]: v })); setPresetId(''); };
@@ -356,6 +356,25 @@ export default function App() {
                 <Toggle label="Auto-rotate" checked={autoRotate} onChange={setAutoRotate} />
                 <Toggle label="Show spin axis" checked={showAxis} onChange={setShowAxis} />
               </div>
+              <LineChart
+                title="Trajectory — side view (flight + roll)"
+                xLabel="Distance" xUnit="yd" yLabel={`Height (yd) · vertical scale ×${vScale}`}
+                xDomain={[0, maxX]}
+                series={[
+                  { id: 'd', label: designLabel, color: C1, points: traj(flight, 'z') },
+                  { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'z') },
+                ]}
+              />
+              <LineChart
+                title="Trajectory — top view"
+                xLabel="Distance" xUnit="yd" yLabel="Offline (+ right)" yUnit="yd"
+                xDomain={[0, maxX]}
+                symmetricY
+                series={[
+                  { id: 'd', label: designLabel, color: C1, points: traj(flight, 'y') },
+                  { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'y') },
+                ]}
+              />
             </div>
 
             <div className="readouts">
@@ -444,25 +463,6 @@ export default function App() {
           </section>
 
           <section className="charts">
-            <LineChart
-              title="Trajectory — side view (flight + roll)"
-              xLabel="Distance" xUnit="yd" yLabel={`Height (yd) · vertical scale ×${vScale}`}
-              xDomain={[0, maxX]}
-              series={[
-                { id: 'd', label: designLabel, color: C1, points: traj(flight, 'z') },
-                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'z') },
-              ]}
-            />
-            <LineChart
-              title="Trajectory — top view"
-              xLabel="Distance" xUnit="yd" yLabel="Offline (+ right)" yUnit="yd"
-              xDomain={[0, maxX]}
-              symmetricY
-              series={[
-                { id: 'd', label: designLabel, color: C1, points: traj(flight, 'y') },
-                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'y') },
-              ]}
-            />
             <LineChart
               title={`Drag coefficient vs air speed (at ${Math.round(L.spin)} rpm)`}
               xLabel="Air speed" xUnit="mph" yLabel="Cd" yDecimals={3}
