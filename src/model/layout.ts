@@ -39,7 +39,8 @@ export function profile(rho: number, o: ProfileOpts): number {
       return 1 - Math.pow(rho, p);
     }
     case 'hex':
-      return 1 - Math.pow(rho, 2.4);
+      // radial equivalent of the mesh's bowl-with-polygon-wall hex profile
+      return Math.min(1, (1 - rho) / 0.1) * (0.35 + 0.65 * (1 - rho * rho));
     case 'flat': {
       const p = 4 + 8 * o.wallSteepness;
       return 1 - Math.pow(rho, p);
@@ -406,8 +407,23 @@ export function buildLayout(d: DesignParams): DimpleLayout {
     }
     const nRound = Math.round(d.roundMix * n);
     if (nRound > 0) {
-      const order = Array.from({ length: n }, (_, i) => i).filter((i) => kinds[i] !== KIND_PENT).sort((a, b) => tiers[a] - tiers[b]);
-      for (const i of order.slice(0, nRound)) kinds[i] = KIND_ROUND;
+      // farthest-point sampling spreads the round dimples evenly over the ball
+      const minD = new Float64Array(n).fill(Infinity);
+      for (let i = 0; i < n; i++) if (kinds[i] === KIND_PENT) minD[i] = -1;
+      let pick = 0;
+      for (let i = 0; i < n; i++) if (kinds[i] !== KIND_PENT && pts[i][2] > pts[pick][2]) pick = i;
+      for (let c = 0; c < nRound; c++) {
+        kinds[pick] = KIND_ROUND;
+        minD[pick] = -1;
+        let next = -1;
+        for (let i = 0; i < n; i++) {
+          if (minD[i] < 0) continue;
+          minD[i] = Math.min(minD[i], angle(pts[i], pts[pick]));
+          if (next < 0 || minD[i] > minD[next]) next = i;
+        }
+        if (next < 0) break;
+        pick = next;
+      }
     }
   }
   const C = new Float32Array(total * 3);
