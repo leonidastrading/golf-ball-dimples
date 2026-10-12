@@ -1,4 +1,4 @@
-import { PROV1_CONSTRUCTION, type Construction } from './construction';
+import { PROV1_CONSTRUCTION, PROV1X_CONSTRUCTION, type Construction } from './construction';
 
 export type Pattern = 'tetrahedral' | 'octahedral' | 'icosahedral' | 'fibonacci';
 export type DimpleShape = 'spherical' | 'conical' | 'dual' | 'raised' | 'hex' | 'flat';
@@ -82,8 +82,8 @@ export interface DesignPreset {
 export const DESIGN_PRESETS: DesignPreset[] = [
   { id: 'prov1', name: 'Titleist Pro V1 (baseline)', note: '388 tetrahedral, multi-diameter spherical dimples. Penetrating mid flight.', params: PROV1 },
   {
-    id: 'prov1x', name: 'Titleist Pro V1x', note: '348 dimples, shallower — higher launch and flight.',
-    params: { ...PROV1, count: 348, diameter: 0.163, depth: 0.0076 },
+    id: 'prov1x', name: 'Titleist Pro V1x', note: '348 shallower dimples on a 4-piece dual core — higher flight and more spin than the Pro V1.',
+    params: { ...PROV1, count: 348, diameter: 0.163, depth: 0.0076, construction: PROV1X_CONSTRUCTION },
   },
   {
     id: 'tp5x', name: 'TaylorMade TP5x', note: '322 shallow, steep-walled dimples with microcoat paint.',

@@ -67,12 +67,25 @@ export const PROV1_CONSTRUCTION: Construction = {
   weight: 45.93,
 };
 
+/** Pro V1x-style dual core: a firm inner core under a softer outer core — less hardness gradient
+ *  to the casing than the Pro V1, so more spin and a firmer feel. */
+export const PROV1X_CONSTRUCTION: Construction = {
+  layers: [
+    { material: 'pb-firm', thickness: 0 },
+    { material: 'pb-mid', thickness: 0.1 },
+    { material: 'ionomer-hard', thickness: 0.035 },
+    { material: 'cast-urethane', thickness: 0.03 },
+  ],
+  weight: 45.93,
+};
+
 export const CONSTRUCTION_PRESETS: { id: string; name: string; note: string; c: Construction }[] = [
   {
     id: '2pc', name: '2-piece distance', note: 'Big firm core + thick ionomer cover. Fast and durable, low spin everywhere.',
     c: { layers: [{ material: 'pb-firm', thickness: 0 }, { material: 'ionomer-cover', thickness: 0.06 }], weight: 45.93 },
   },
   { id: '3pc', name: '3-piece tour (Pro V1)', note: 'Core, firm ionomer casing, cast urethane cover.', c: PROV1_CONSTRUCTION },
+  { id: '4pc-x', name: '4-piece tour (Pro V1x)', note: 'Firm inner core, outer core, casing, urethane — higher spin and firmer than the Pro V1.', c: PROV1X_CONSTRUCTION },
   {
     id: '4pc', name: '4-piece dual core', note: 'Soft inner core, resilient HNP outer core, casing, urethane.',
     c: { layers: [{ material: 'pb-soft', thickness: 0 }, { material: 'hnp', thickness: 0.12 }, { material: 'ionomer-hard', thickness: 0.035 }, { material: 'cast-urethane', thickness: 0.03 }], weight: 45.93 },
@@ -178,8 +191,8 @@ export function constructionEffects(c: Construction) {
   const speed = ((1 + p.cor) / (1 + REF.cor)) * ((1 + REF.massG / head) / (1 + p.massG / head));
   const drv = Math.min(1.3, Math.max(0.65, p.driverSpinMult / REF.driverSpinMult));
   const wdg = Math.min(1.3, Math.max(0.5, p.wedgeSpinMult / REF.wedgeSpinMult));
-  // lower-spinning, softer balls launch a touch higher
-  const launchDelta = -(drv - 1) * 6 - (p.compression - REF.compression) * 0.01;
+  // firmer (higher-compression) balls launch a touch higher; extra spin pulls launch down slightly
+  const launchDelta = -(drv - 1) * 3 + (p.compression - REF.compression) * 0.025;
   return {
     ...p,
     speedMult: speed,
