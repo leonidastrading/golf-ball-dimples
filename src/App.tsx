@@ -49,6 +49,9 @@ function loadInitial(): { design: DesignParams; launch: LaunchParams } {
   return { design: PROV1, launch: DEFAULT_LAUNCH };
 }
 
+const launchMatches = (preset: Partial<LaunchParams>, l: LaunchParams) =>
+  (Object.keys(preset) as (keyof LaunchParams)[]).every((k) => Math.abs((l[k] as number) - (preset[k] as number)) < 1e-6);
+
 const fmt = (v: number, d = 1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
 const signed = (v: number, d = 1) => (Math.abs(v) < 0.5 * 10 ** -d ? '±0' : `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(d)}`);
 
@@ -370,13 +373,14 @@ export default function App() {
           <Section title="Launch">
             <div className="chips">
               {LAUNCH_PRESETS.map((p) => {
-                const on = (Object.keys(p.params) as (keyof LaunchParams)[]).every((k) => Math.abs((launch[k] as number) - (p.params[k] as number)) < 1e-6);
+                const on = launchMatches(p.params, launch);
                 return (
                   <button key={p.id} type="button" className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => setLaunch((l) => ({ ...l, ...p.params }))}>
                     {on && <span aria-hidden>✓ </span>}{p.name}
                   </button>
                 );
               })}
+              {!LAUNCH_PRESETS.some((p) => launchMatches(p.params, launch)) && <span className="chip on static">✓ Custom</span>}
             </div>
             <Slider label="Ball speed" value={launch.ballSpeed} min={60} max={200} step={0.5} decimals={1} unit="mph" onChange={(v) => setL('ballSpeed', v)} />
             <Slider label="Launch angle" value={launch.launchAngle} min={0} max={40} step={0.1} decimals={1} unit="°" onChange={(v) => setL('launchAngle', v)} />
