@@ -288,7 +288,7 @@ function positions(d: DesignParams): { pts: V3[]; tiers: number[] } {
     }
   }
   const out = { pts, tiers };
-  if (posCache.size > 40) posCache.clear();
+  if (posCache.size > 300) posCache.clear();
   posCache.set(key, out);
   return out;
 }

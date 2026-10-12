@@ -169,3 +169,14 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
 .flight-table thead .swatch { vertical-align: -1px; margin-right: 4px; }
 .flight-table td:last-child { color: var(--text-secondary); }
 .flight-table td.diff-zero { color: var(--text-muted); }
+
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.1); }
+.progress { height: 6px; background: var(--surface-3); border-radius: 999px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--accent); transition: width 0.2s; }
+.opt-result { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.opt-head { color: var(--text-muted); font-size: 12px; }
+.opt-num { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.opt-num span { font-size: 13px; color: var(--text-muted); font-weight: 400; }
+.opt-gain { color: var(--text-secondary); font-size: 13px; }
+.opt-result ul { margin: 0; padding-left: 16px; color: var(--text-secondary); font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }

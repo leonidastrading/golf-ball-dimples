@@ -2,6 +2,7 @@ import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { BallViewer } from './components/BallViewer';
 import { Section, Segmented, Slider, Toggle } from './components/Controls';
 import { LineChart } from './components/LineChart';
+import { Optimizer } from './components/Optimizer';
 import { ProfileChart } from './components/ProfileChart';
 import { buildAero } from './model/aero';
 import { air, coefficientSweep, simulate } from './model/flight';
@@ -214,6 +215,11 @@ export default function App() {
 
       <div className="layout">
         <aside className="panel">
+          <Optimizer
+            design={design}
+            launch={launch}
+            onApply={(best) => { setPinned(design); setCompareId('pinned'); setDesign(best); setPresetId(''); }}
+          />
           <Section title="Layout">
             <Segmented
               label="Symmetry pattern"
