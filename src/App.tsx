@@ -255,28 +255,47 @@ export default function App() {
 
           <Section title="Dimple geometry">
             <Segmented label="Shape" value={design.shape} options={SHAPES} onChange={(v) => set('shape', v)} hint={SHAPES.find((s) => s.value === design.shape)?.title} />
-            <Slider
-              label="Mean diameter"
-              value={design.diameter}
-              min={0.06}
-              max={0.26}
-              step={0.001}
-              decimals={3}
-              unit="in"
-              display={`${(design.diameter * 25.4).toFixed(2)} mm`}
-              onChange={(v) => set('diameter', v)}
-            />
-            <Slider
-              label="Surface coverage"
-              value={coverage}
-              min={30}
-              max={design.shape === 'hex' ? 96 : 90}
-              step={0.5}
-              decimals={1}
-              unit="%"
-              onChange={(v) => set('diameter', diameterForCoverage(design, v / 100))}
-              hint={feat.clampedFraction > 0.05 ? `${Math.round(feat.clampedFraction * 100)}% of dimples are trimmed to avoid overlapping neighbors — max ≈ ${maxCoverage.toFixed(0)}%.` : 'Linked to diameter: changing one updates the other.'}
-            />
+            {design.shape === 'hex' ? (
+              <>
+                <Slider
+                  label="Ridge width"
+                  value={design.ridgeWidth * 1000}
+                  min={1}
+                  max={25}
+                  step={0.5}
+                  decimals={1}
+                  unit="thou"
+                  display={`${(design.ridgeWidth * 25.4).toFixed(2)} mm`}
+                  onChange={(v) => set('ridgeWidth', v / 1000)}
+                  hint={`Hex cells tile the ball edge to edge; only the raised ridges between them are flat land. Coverage ${coverage.toFixed(1)}% · cells ${feat.minDiameter.toFixed(3)}–${feat.maxDiameter.toFixed(3)} in across flats (set by the dimple count and size variation).`}
+                />
+              </>
+            ) : (
+              <>
+              <Slider
+                label="Mean diameter"
+                value={design.diameter}
+                min={0.06}
+                max={0.26}
+                step={0.001}
+                decimals={3}
+                unit="in"
+                display={`${(design.diameter * 25.4).toFixed(2)} mm`}
+                onChange={(v) => set('diameter', v)}
+              />
+              <Slider
+                label="Surface coverage"
+                value={coverage}
+                min={30}
+                max={90}
+                step={0.5}
+                decimals={1}
+                unit="%"
+                onChange={(v) => set('diameter', diameterForCoverage(design, v / 100))}
+                hint={feat.clampedFraction > 0.05 ? `${Math.round(feat.clampedFraction * 100)}% of dimples are trimmed to avoid overlapping neighbors — max ≈ ${maxCoverage.toFixed(0)}%.` : 'Linked to diameter: changing one updates the other.'}
+              />
+              </>
+            )}
             <Slider
               label="Depth"
               value={design.depth}

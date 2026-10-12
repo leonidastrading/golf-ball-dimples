@@ -11,6 +11,9 @@ export interface MeshRequest {
   depths: Float32Array; // inches
   isMicro: Uint8Array;
   kinds: Uint8Array; // 0 default, 2 round, 3 pentagon
+  /** cell tessellation (hex layouts): per-dimple bisector edges, CSR (ux, uy, h triples) */
+  planeStart: Int32Array | null;
+  planeData: Float32Array | null;
   opts: ProfileOpts;
   exaggeration: number;
   colorMode: 'white' | 'depth';
@@ -108,10 +111,20 @@ export function buildMesh(req: MeshRequest): MeshResult {
     for (let d = 0; d < total; d++) {
       const cx = centers[d * 3], cy = centers[d * 3 + 1], cz = centers[d * 3 + 2];
       const cn = cx * N[0] + cy * N[1] + cz * N[2];
-      const pent = opts.shape === 'hex' && !isMicro[d] && kinds[d] === 3;
-      const hex = opts.shape === 'hex' && !isMicro[d] && kinds[d] === 0;
+      const ps = req.planeStart, pd = req.planeData;
+      const cell = !!ps && !!pd && d < ps.length - 1 && !isMicro[d] && kinds[d] !== 2;
+      const pent = !cell && opts.shape === 'hex' && !isMicro[d] && kinds[d] === 3;
+      const hex = !cell && opts.shape === 'hex' && !isMicro[d] && kinds[d] === 0;
       const round = opts.shape === 'hex' && kinds[d] === 2;
-      const rr = radii[d] * (hex ? 1 / COS30 : pent ? 1 / COS36 : 1); // bounding radius
+      let rr = radii[d] * (hex ? 1 / COS30 : pent ? 1 / COS36 : 1); // bounding radius
+      let p0 = 0, p1 = 0;
+      if (cell) {
+        p0 = ps![d]; p1 = ps![d + 1];
+        let hmax = 0;
+        for (let q = p0; q < p1; q++) hmax = Math.max(hmax, pd![q * 3 + 2]);
+        // a cell's corners lie within ~1.25× its farthest bisector distance (first-ring edges)
+        rr = Math.atan(Math.min(1.3 * radii[d] / COS36, 1.25 * hmax));
+      }
       if (cn < Math.cos(Math.PI / 2 * 0.62 + rr)) continue; // can't reach this face
       if (cn <= 1e-3) continue;
       const ca = (cx * U[0] + cy * U[1] + cz * U[2]) / cn;
@@ -127,7 +140,7 @@ export function buildMesh(req: MeshRequest): MeshResult {
       const fx = cy * ez - cz * ey, fy = cz * ex - cx * ez, fz = cx * ey - cy * ex;
       const r = radii[d];
       const depth = (depths[d] / BALL_RADIUS_IN) * exaggeration;
-      const po = isMicro[d] || round ? microOpts : hex || pent ? hexOpts : opts;
+      const po = isMicro[d] || round ? microOpts : hex || pent || cell ? hexOpts : opts;
       const cosR = Math.cos(rr);
       for (let j = j0; j <= j1; j++)
         for (let i = i0; i <= i1; i++) {
@@ -140,7 +153,14 @@ export function buildMesh(req: MeshRequest): MeshResult {
           const x = tx * ex + ty * ey + tz * ez;
           const y = tx * fx + ty * fy + tz * fz;
           let rho: number;
-          if (hex) {
+          if (cell) {
+            let m = 0;
+            for (let q = p0; q < p1; q++) {
+              const v = (x * pd![q * 3] + y * pd![q * 3 + 1]) / pd![q * 3 + 2];
+              if (v > m) m = v;
+            }
+            rho = m;
+          } else if (hex) {
             const m = Math.max(Math.abs(x), Math.abs(0.5 * x + COS30 * y), Math.abs(-0.5 * x + COS30 * y));
             rho = m / Math.tan(r);
           } else if (pent) {

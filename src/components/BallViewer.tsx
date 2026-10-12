@@ -2,7 +2,7 @@ import { Canvas } from '@react-three/fiber';
 import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import type { DimpleLayout, ProfileOpts } from '../model/layout';
+import { cellPlanes, type DimpleLayout, type ProfileOpts } from '../model/layout';
 import type { MeshRequest, MeshResult } from '../geometry/ballMesh';
 import { buildWireframe } from '../geometry/wireframe';
 
@@ -53,7 +53,17 @@ function useBallGeometry(p: Props) {
 
   useEffect(() => {
     const L = p.layout;
+    let planeStart: Int32Array | null = null, planeData: Float32Array | null = null;
+    if (L.cells) {
+      const all = Array.from({ length: L.n }, (_, i) => cellPlanes(L, i));
+      planeStart = new Int32Array(L.n + 1);
+      for (let i = 0; i < L.n; i++) planeStart[i + 1] = planeStart[i] + all[i].length;
+      planeData = new Float32Array(planeStart[L.n] * 3);
+      all.forEach((pl, i) => pl.forEach((q, k) => planeData!.set([q.ux, q.uy, q.h], (planeStart![i] + k) * 3)));
+    }
     const req: MeshRequest = {
+      planeStart,
+      planeData,
       id: ++seq.current,
       res: p.resolution,
       total: L.total,

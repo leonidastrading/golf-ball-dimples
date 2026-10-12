@@ -222,6 +222,48 @@ export interface DimpleLayout {
   /** KIND_DEFAULT, KIND_ROUND (round dimple in a hex layout) or KIND_PENT (pentagon at a 5-neighbor site) */
   kinds: Uint8Array;
   clampedFraction: number;
+  /** hex layouts are true cell tessellations: each dimple fills its Voronoi cell minus a ridge */
+  cells: boolean;
+  /** ridge (land) width between cells, as an angle on the unit sphere */
+  ridge: number;
+  /** neighbor lists of the primary dimples (CSR layout) */
+  nbrStart: Int32Array;
+  nbrIdx: Int32Array;
+  /** relative size of each primary dimple; cell edges split neighbor gaps in proportion */
+  cellW: Float32Array;
+}
+
+export interface CellPlane { ux: number; uy: number; h: number }
+
+/**
+ * Bisector edges of dimple i's cell, in its tangent-plane frame (e1 = axes, e2 = c × e1),
+ * using gnomonic coordinates. A point (x, y) is inside the dimple when max(x·ux + y·uy) / h < 1.
+ */
+export function cellPlanes(L: DimpleLayout, i: number): CellPlane[] {
+  const cx = L.centers[i * 3], cy = L.centers[i * 3 + 1], cz = L.centers[i * 3 + 2];
+  const ex = L.axes[i * 3], ey = L.axes[i * 3 + 1], ez = L.axes[i * 3 + 2];
+  const fx = cy * ez - cz * ey, fy = cz * ex - cx * ez, fz = cx * ey - cy * ex;
+  const out: CellPlane[] = [];
+  const halfRidge = Math.tan(L.ridge) / 2;
+  for (let k = L.nbrStart[i]; k < L.nbrStart[i + 1]; k++) {
+    const j = L.nbrIdx[k];
+    const jx = L.centers[j * 3], jy = L.centers[j * 3 + 1], jz = L.centers[j * 3 + 2];
+    const dot = jx * cx + jy * cy + jz * cz;
+    if (dot <= 0) continue;
+    const qx = jx / dot - cx, qy = jy / dot - cy, qz = jz / dot - cz;
+    const x = qx * ex + qy * ey + qz * ez, y = qx * fx + qy * fy + qz * fz;
+    const len = Math.hypot(x, y);
+    // weighted split: a bigger dimple claims more of the gap to its neighbor
+    const share = L.cellW[i] / (L.cellW[i] + L.cellW[j]);
+    out.push({ ux: x / len, uy: y / len, h: Math.max(1e-6, len * share - halfRidge) });
+  }
+  return out;
+}
+
+export function cellRho(planes: CellPlane[], x: number, y: number) {
+  let m = 0;
+  for (const p of planes) { const v = (x * p.ux + y * p.uy) / p.h; if (v > m) m = v; }
+  return m;
 }
 
 function angle(a: V3, b: V3) {
@@ -344,13 +386,25 @@ export function buildLayout(d: DesignParams): DimpleLayout {
     rc[i] = r[i] * s;
   }
 
+  const cells = d.shape === 'hex';
+  const ridge = (d.ridgeWidth ?? 0.004) / BALL_RADIUS_IN;
+  if (cells) {
+    // the cell fills the space to its neighbors: inscribed radius = half the closest neighbor gap
+    clamped = 0;
+    for (let i = 0; i < n; i++) {
+      let m = Infinity;
+      for (const j of nbr[i]) m = Math.min(m, (dist.get(i * n + j)! * r[i]) / (r[i] + r[j]));
+      rc[i] = Math.max(0.002, m - ridge / 2);
+    }
+  }
+
   const de = effectiveDepth(d);
   const centers: V3[] = pts.slice();
   const radii: number[] = rc;
   const depths: number[] = pts.map((p) => de * asymFactor(d.asymmetry, p[2]));
   const micro: boolean[] = pts.map(() => false);
 
-  if (d.microDimples && de > 0) {
+  if (d.microDimples && de > 0 && !cells) {
     // interstitial sites: centroids of neighboring dimple triangles
     const seen = new Set<string>();
     const meanTheta = theta0;
@@ -425,6 +479,10 @@ export function buildLayout(d: DesignParams): DimpleLayout {
       }
     }
   }
+  const nbrStart = new Int32Array(n + 1);
+  for (let i = 0; i < n; i++) nbrStart[i + 1] = nbrStart[i] + nbr[i].length;
+  const nbrIdx = new Int32Array(nbrStart[n]);
+  for (let i = 0; i < n; i++) nbrIdx.set(nbr[i], nbrStart[i]);
   const C = new Float32Array(total * 3);
   const X = new Float32Array(total * 3);
   for (let i = 0; i < total; i++) {
@@ -440,6 +498,7 @@ export function buildLayout(d: DesignParams): DimpleLayout {
     n, total, centers: C, axes: X,
     radii: Float32Array.from(radii), depths: Float32Array.from(depths), isMicro: Uint8Array.from(micro.map(Number)), kinds,
     clampedFraction: clamped / n,
+    cells, ridge, nbrStart, nbrIdx, cellW: Float32Array.from(r),
   };
 }
 
@@ -538,6 +597,11 @@ export function features(d: DesignParams, L: DimpleLayout): DesignFeatures {
     }
   }
   const ballVol = (4 / 3) * Math.PI * BALL_RADIUS_IN ** 3;
+  if (L.cells) {
+    const mc = cellCoverage(L, o);
+    area = mc.coverage * 4 * Math.PI;
+    vol = mc.volume;
+  }
   const meanD = dsum / Math.max(1, L.n);
   const effDepth = depthSum / Math.max(1, L.n);
   const slope = rimSlope(o);
@@ -558,9 +622,49 @@ export function features(d: DesignParams, L: DimpleLayout): DesignFeatures {
   };
 }
 
+const cellCache = new WeakMap<DimpleLayout, { coverage: number; volume: number }>();
+
+/** Exact-ish coverage and dimple volume of a cell tessellation, by sampling 30k points. */
+export function cellCoverage(L: DimpleLayout, o: ProfileOpts) {
+  const hit = cellCache.get(L);
+  if (hit) return hit;
+  const M = 30000;
+  const planes = Array.from({ length: L.n }, (_, i) => cellPlanes(L, i));
+  const hexOpts: ProfileOpts = { ...o, shape: 'hex' };
+  const roundOpts: ProfileOpts = { ...o, shape: 'spherical', wallSteepness: 0.2 };
+  const ga = Math.PI * (3 - Math.sqrt(5));
+  let covered = 0, depthSum = 0;
+  for (let s = 0; s < M; s++) {
+    const z = 1 - (2 * (s + 0.5)) / M, rr = Math.sqrt(1 - z * z);
+    const px = rr * Math.cos(ga * s), py = rr * Math.sin(ga * s), pz = z;
+    let best = -1, bd = -2;
+    for (let i = 0; i < L.n; i++) {
+      const dd = px * L.centers[i * 3] + py * L.centers[i * 3 + 1] + pz * L.centers[i * 3 + 2];
+      if (dd > bd) { bd = dd; best = i; }
+    }
+    const i = best;
+    const cx = L.centers[i * 3], cy = L.centers[i * 3 + 1], cz = L.centers[i * 3 + 2];
+    const ex = L.axes[i * 3], ey = L.axes[i * 3 + 1], ez = L.axes[i * 3 + 2];
+    const tx = px / bd - cx, ty = py / bd - cy, tz = pz / bd - cz;
+    const x = tx * ex + ty * ey + tz * ez;
+    const y = tx * (cy * ez - cz * ey) + ty * (cz * ex - cx * ez) + tz * (cx * ey - cy * ex);
+    const round = L.kinds[i] === KIND_ROUND;
+    const rho = round ? Math.hypot(x, y) / Math.tan(L.radii[i]) : cellRho(planes[i], x, y);
+    if (rho < 1) {
+      covered++;
+      depthSum += profile(rho, round ? roundOpts : hexOpts) * L.depths[i];
+    }
+  }
+  const sampleArea = (4 * Math.PI * BALL_RADIUS_IN * BALL_RADIUS_IN) / M;
+  const out = { coverage: covered / M, volume: depthSum * sampleArea };
+  cellCache.set(L, out);
+  return out;
+}
+
 /** Coverage for a given mean diameter (used to drive the coverage slider). */
 export function coverageAt(d: DesignParams, diameter: number): number {
   const L = buildLayout({ ...d, diameter, microDimples: false });
+  if (L.cells) return cellCoverage(L, d).coverage;
   let a = 0;
   for (let i = 0; i < L.n; i++) a += 2 * Math.PI * (1 - Math.cos(L.radii[i])) * areaFactor(d.shape, L.kinds[i], false);
   return Math.min(1, a / (4 * Math.PI));

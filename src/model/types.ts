@@ -23,6 +23,8 @@ export interface DesignParams {
   islandRatio: number;
   /** add micro-dimples in the land area between primary dimples */
   microDimples: boolean;
+  /** hex layouts: width of the raised ridge between neighboring cells, inches */
+  ridgeWidth: number;
   /** hex layouts: fraction of dimples that are round instead of hexagonal */
   roundMix: number;
   /** micro-dimple diameter as a fraction of the mean primary diameter */
@@ -63,6 +65,7 @@ export const PROV1: DesignParams = {
   microDimples: false,
   microSize: 0.3,
   roundMix: 0,
+  ridgeWidth: 0.004,
   paintThickness: 0.0005,
   paintProcess: 'spray',
   asymmetry: 'none',
@@ -108,7 +111,11 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   },
   {
     id: 'chromesoft', name: 'Callaway Chrome Soft (2024-style)', note: 'Hexagons + 12 pentagons mixed with round dimples for flight stability (312 here; Callaway uses 332, which no icosahedral lattice produces).',
-    params: { ...PROV1, count: 312, pattern: 'icosahedral', shape: 'hex', diameter: 0.172, depth: 0.0068, sizeVariation: 0, roundMix: 0.18 },
+    params: { ...PROV1, count: 312, pattern: 'icosahedral', shape: 'hex', diameter: 0.172, depth: 0.0072, sizeVariation: 0, roundMix: 0.18 },
+  },
+  {
+    id: 'chrometourx', name: 'Callaway Chrome Tour X-style', note: 'Mixed-size hexagons tessellated edge to edge, smaller ones tucked between larger ones, a few round dimples and thin ridges.',
+    params: { ...PROV1, count: 362, pattern: 'icosahedral', shape: 'hex', diameter: 0.16, depth: 0.0074, sizeVariation: 0.3, roundMix: 0.06, ridgeWidth: 0.004 },
   },
   {
     id: 'polara', name: 'Polara (non-conforming)', note: 'Deep equatorial band, shallow poles — damps hooks and slices.',

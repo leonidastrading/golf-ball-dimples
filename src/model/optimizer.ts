@@ -41,9 +41,10 @@ const RANGE = {
   innerRatio: [0.3, 0.7],
   islandRatio: [0.2, 0.5],
   microSize: [0.2, 0.45],
+  ridgeWidth: [0.002, 0.015],
 } as const;
 
-type NumKey = 'diameter' | 'depth' | 'wallSteepness' | 'innerRatio' | 'islandRatio' | 'microSize';
+type NumKey = 'diameter' | 'depth' | 'wallSteepness' | 'innerRatio' | 'islandRatio' | 'microSize' | 'ridgeWidth';
 
 function rng(seed: number) {
   let s = seed >>> 0;
@@ -122,6 +123,7 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
       islandRatio: lerp('islandRatio'),
       microDimples: rand() < 0.3,
       microSize: lerp('microSize'),
+      ridgeWidth: lerp('ridgeWidth'),
       paintProcess: rand() < 0.5 ? 'spray' : 'microcoat',
       construction: rand() < 0.35 ? base.construction : CONSTRUCTION_PRESETS[Math.floor(rand() * CONSTRUCTION_PRESETS.length)].c,
     };
@@ -136,7 +138,7 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
   for (const seed of seeds) {
     let cur = seed;
     const steps: Record<NumKey, number> = {
-      diameter: 0.02, depth: 0.0012, wallSteepness: 0.25, innerRatio: 0.1, islandRatio: 0.08, microSize: 0.08,
+      diameter: 0.02, depth: 0.0012, wallSteepness: 0.25, innerRatio: 0.1, islandRatio: 0.08, microSize: 0.08, ridgeWidth: 0.003,
     };
     let used = 0;
     while (used < perSeed) {
@@ -144,6 +146,7 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
       const keys: (NumKey | 'count' | 'sizeVariation' | 'micro' | 'paint' | 'construction')[] = ['diameter', 'depth', 'count', 'sizeVariation', 'paint', 'construction'];
       if (cur.params.shape === 'spherical' || cur.params.shape === 'flat') keys.push('wallSteepness');
       if (cur.params.shape === 'dual') keys.push('innerRatio');
+      if (cur.params.shape === 'hex') keys.push('ridgeWidth');
       if (cur.params.shape === 'raised') keys.push('islandRatio');
       keys.push('micro');
       if (cur.params.microDimples) keys.push('microSize');

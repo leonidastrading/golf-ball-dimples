@@ -63,13 +63,14 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   // --- post-critical drag
   let cd0 = CAL.CD0;
   const dc = cov - b.coverage;
-  cd0 += dc < 0 ? -0.2 * dc + 0.25 * dc * dc : -0.1 * dc; // diminishing returns above baseline
+  // diminishing returns above the baseline: going from 80% to ~100% buys a few yards, not dozens
+  cd0 += dc < 0 ? -0.2 * dc + 0.25 * dc * dc : -0.06 * dc;
   cd0 += 0.045 * (x - 1) * (x - 1) + 0.012 * (x - 1);
   const meanD = f.meanDiameter;
   if (meanD < 0.12) cd0 += 0.03 * ((0.12 - meanD) / 0.05) ** 2; // very small dimples trip poorly
   if (f.count > 450) cd0 += 0.00003 * (f.count - 450); // skin friction from dense arrays
   const shapeCd: Record<DesignParams['shape'], number> = {
-    spherical: 0, conical: -0.003, dual: -0.002, raised: 0.003, hex: -0.006, flat: 0.002,
+    spherical: 0, conical: -0.003, dual: -0.002, raised: 0.003, hex: -0.002, flat: 0.002,
   };
   cd0 += shapeCd[d.shape];
   if (d.microDimples) cd0 += 0.002;

@@ -1,4 +1,4 @@
-import { profile, KIND_PENT, KIND_ROUND, type DimpleLayout, type ProfileOpts } from '../model/layout';
+import { cellPlanes, profile, KIND_PENT, KIND_ROUND, type CellPlane, type DimpleLayout, type ProfileOpts } from '../model/layout';
 import { BALL_RADIUS_IN } from '../model/types';
 
 
@@ -23,6 +23,7 @@ export function buildWireframe(L: DimpleLayout, opts: ProfileOpts, exaggeration:
     const micro = L.isMicro[d] === 1;
     const hexLayout = opts.shape === 'hex' && !micro;
     const kind = L.kinds[d];
+    const planes: CellPlane[] | null = L.cells && !micro && kind !== KIND_ROUND ? cellPlanes(L, d) : null;
     const poly = hexLayout && kind !== KIND_ROUND ? (kind === KIND_PENT ? 5 : 6) : 0;
     const po = micro || (hexLayout && kind === KIND_ROUND) ? microOpts : poly ? hexOpts : opts;
     const tr = Math.tan(L.radii[d]);
@@ -30,6 +31,13 @@ export function buildWireframe(L: DimpleLayout, opts: ProfileOpts, exaggeration:
 
     // polygon metric of a unit direction (1 for circles): distance scale to the rim at angle th
     const metric = (th: number) => {
+      if (planes) {
+        // rho of the unit direction th inside this cell (scaled to the dimple's inradius)
+        let m = 0;
+        const ux = Math.cos(th), uy = Math.sin(th);
+        for (const q of planes) { const v = ((ux * q.ux + uy * q.uy) * tr) / q.h; if (v > m) m = v; }
+        return m;
+      }
       if (poly === 6) return Math.max(Math.abs(Math.cos(th)), Math.abs(Math.cos(th - Math.PI / 3)), Math.abs(Math.cos(th + Math.PI / 3)));
       if (poly === 5) {
         let m = -Infinity;
@@ -59,7 +67,7 @@ export function buildWireframe(L: DimpleLayout, opts: ProfileOpts, exaggeration:
         prev = cur;
       }
     }
-    const nSp = poly === 5 ? Math.round(spokes / 6) * 5 : spokes;
+    const nSp = poly === 5 && !planes ? Math.round(spokes / 6) * 5 : spokes;
     for (let s = 0; s < nSp; s++) {
       const th = (2 * Math.PI * s) / nSp;
       let prev = point(0, th);
