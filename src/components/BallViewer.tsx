@@ -1,9 +1,10 @@
 import { Canvas } from '@react-three/fiber';
 import { Environment, Lightformer, OrbitControls } from '@react-three/drei';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import type { DimpleLayout, ProfileOpts } from '../model/layout';
 import type { MeshRequest, MeshResult } from '../geometry/ballMesh';
+import { buildWireframe } from '../geometry/wireframe';
 
 interface Props {
   layout: DimpleLayout;
@@ -13,6 +14,9 @@ interface Props {
   colorMode: 'white' | 'depth';
   autoRotate: boolean;
   showAxis: boolean;
+  smooth: boolean;
+  matte: boolean;
+  wireframe: boolean;
   spinAxisDeg: number;
 }
 
@@ -62,13 +66,14 @@ function useBallGeometry(p: Props) {
       opts: { shape: p.opts.shape, wallSteepness: p.opts.wallSteepness, innerRatio: p.opts.innerRatio, islandRatio: p.opts.islandRatio },
       exaggeration: p.exaggeration,
       colorMode: p.colorMode,
+      smooth: p.smooth,
     };
     const w = worker.current;
     if (!w) return;
     setBusy(true);
     if (inflight.current) pending.current = req;
     else { inflight.current = true; w.postMessage(req); }
-  }, [p.layout, p.opts.shape, p.opts.wallSteepness, p.opts.innerRatio, p.opts.islandRatio, p.resolution, p.exaggeration, p.colorMode]);
+  }, [p.layout, p.opts.shape, p.opts.wallSteepness, p.opts.innerRatio, p.opts.islandRatio, p.resolution, p.exaggeration, p.colorMode, p.smooth]);
 
   return { geom, busy };
 }
@@ -90,12 +95,26 @@ function SpinAxis({ tiltDeg }: { tiltDeg: number }) {
   );
 }
 
+function Wireframe({ layout, opts, exaggeration }: Pick<Props, 'layout' | 'opts' | 'exaggeration'>) {
+  const geom = useMemo(() => {
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(buildWireframe(layout, opts, exaggeration), 3));
+    return g;
+  }, [layout, opts, exaggeration]);
+  useEffect(() => () => geom.dispose(), [geom]);
+  return (
+    <lineSegments geometry={geom}>
+      <lineBasicMaterial color="#d8343a" transparent opacity={0.85} />
+    </lineSegments>
+  );
+}
+
 export function BallViewer(p: Props) {
   const { geom, busy } = useBallGeometry(p);
   return (
     <div className="viewer">
       <Canvas frameloop={p.autoRotate ? "always" : "demand"} camera={{ position: [0, 0.4, 3.1], fov: 38, near: 0.01, far: 50 }} dpr={[1, 2]} gl={{ antialias: true }}>
-        <color attach="background" args={['#121211']} />
+        <color attach="background" args={[p.wireframe ? '#f4f4f2' : '#121211']} />
         <ambientLight intensity={0.15} />
         <directionalLight position={[3, 4, 5]} intensity={1.6} />
         <directionalLight position={[-4, -1, -2]} intensity={0.35} />
@@ -108,9 +127,16 @@ export function BallViewer(p: Props) {
         <group rotation={[0, Math.PI / 2, 0]}>
           {geom && (
             <mesh geometry={geom}>
-              <meshPhysicalMaterial vertexColors roughness={0.42} clearcoat={0.6} clearcoatRoughness={0.25} envMapIntensity={0.6} />
+              {p.wireframe ? (
+                <meshStandardMaterial color="#f7f7f5" roughness={0.9} metalness={0} envMapIntensity={0.35} />
+              ) : p.matte ? (
+                <meshStandardMaterial vertexColors roughness={0.95} metalness={0} envMapIntensity={0.25} />
+              ) : (
+                <meshPhysicalMaterial vertexColors roughness={0.42} clearcoat={0.6} clearcoatRoughness={0.25} envMapIntensity={0.6} />
+              )}
             </mesh>
           )}
+          {p.wireframe && <Wireframe layout={p.layout} opts={p.opts} exaggeration={p.exaggeration} />}
         </group>
         {p.showAxis && <SpinAxis tiltDeg={p.spinAxisDeg} />}
         <OrbitControls enableDamping dampingFactor={0.08} minDistance={1.12} maxDistance={8} autoRotate={p.autoRotate} autoRotateSpeed={0.8} enablePan={false} />

@@ -14,6 +14,8 @@ export interface MeshRequest {
   opts: ProfileOpts;
   exaggeration: number;
   colorMode: 'white' | 'depth';
+  /** blur the height field slightly so sharp ridges don't stair-step across the mesh grid */
+  smooth: boolean;
 }
 
 export interface MeshResult {
@@ -152,6 +154,18 @@ export function buildMesh(req: MeshRequest): MeshResult {
           const h = profile(rho, po) * depth;
           if (h > H[k]) H[k] = h;
         }
+    }
+    if (req.smooth) {
+      // two passes of a separable [1 2 1] filter over the height field (anti-aliases ridges)
+      const T = new Float64Array(g * g);
+      for (let pass = 0; pass < 2; pass++) {
+        T.set(H);
+        for (let j = 0; j < g; j++)
+          for (let i = 1; i < g - 1; i++) { const k = j * g + i; H[k] = 0.25 * T[k - 1] + 0.5 * T[k] + 0.25 * T[k + 1]; }
+        T.set(H);
+        for (let j = 1; j < g - 1; j++)
+          for (let i = 0; i < g; i++) { const k = j * g + i; H[k] = 0.25 * T[k - g] + 0.5 * T[k] + 0.25 * T[k + g]; }
+      }
     }
     // displaced positions in the padded grid (reuse P in place)
     for (let k = 0; k < g * g; k++) {

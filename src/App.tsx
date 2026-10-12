@@ -63,6 +63,9 @@ export default function App() {
   const [colorMode, setColorMode] = useState<'white' | 'depth'>('white');
   const [autoRotate, setAutoRotate] = useState(true);
   const [showAxis, setShowAxis] = useState(false);
+  const [smoothEdges, setSmoothEdges] = useState(false);
+  const [matte, setMatte] = useState(false);
+  const [wire, setWire] = useState(false);
   const [presetId, setPresetId] = useState<string>(() => (window.location.hash.length > 1 ? '' : 'prov1'));
   const [copied, setCopied] = useState(false);
 
@@ -371,13 +374,16 @@ export default function App() {
         <main className="main">
           <section className="hero">
             <div className="viewer-wrap">
-              <BallViewer layout={layout} opts={d} resolution={res} exaggeration={exag} colorMode={colorMode} autoRotate={autoRotate} showAxis={showAxis} spinAxisDeg={launch.spinAxis} />
+              <BallViewer layout={layout} opts={d} resolution={res} exaggeration={exag} colorMode={colorMode} autoRotate={autoRotate} showAxis={showAxis} spinAxisDeg={launch.spinAxis} smooth={smoothEdges} matte={matte} wireframe={wire} />
               <div className="viewer-tools">
                 <Segmented label="Mesh" value={String(res)} options={[{ value: '160', label: 'Draft' }, { value: '256', label: 'Standard' }, { value: '384', label: 'High' }]} onChange={(v) => setRes(+v)} />
                 <Segmented label="Color" value={colorMode} options={[{ value: 'white', label: 'Ball' }, { value: 'depth', label: 'Depth map' }]} onChange={setColorMode} />
                 <Slider label="Depth exaggeration" value={exag} min={1} max={6} step={0.5} decimals={1} unit="×" onChange={setExag} />
                 <Toggle label="Auto-rotate" checked={autoRotate} onChange={setAutoRotate} />
                 <Toggle label="Show spin axis" checked={showAxis} onChange={setShowAxis} />
+                <Toggle label="Smooth dimple edges" checked={smoothEdges} onChange={setSmoothEdges} hint="Softens sharp ridges so they don't stair-step on the mesh grid." />
+                <Toggle label="Matte (no reflections)" checked={matte} onChange={setMatte} hint="Turns off the glossy coat — best with the depth map." />
+                <Toggle label="Wireframe (CAD) view" checked={wire} onChange={setWire} hint="Depth contour rings and spokes for every dimple, drawn like a CAD model." />
               </div>
               <LineChart
                 title="Trajectory — side view (flight + roll)"
