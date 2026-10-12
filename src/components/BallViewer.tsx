@@ -93,7 +93,7 @@ export function BallViewer(p: Props) {
   const { geom, busy } = useBallGeometry(p);
   return (
     <div className="viewer">
-      <Canvas camera={{ position: [0, 0.4, 3.1], fov: 38, near: 0.01, far: 50 }} dpr={[1, 2]} gl={{ antialias: true }}>
+      <Canvas frameloop={p.autoRotate ? "always" : "demand"} camera={{ position: [0, 0.4, 3.1], fov: 38, near: 0.01, far: 50 }} dpr={[1, 2]} gl={{ antialias: true }}>
         <color attach="background" args={['#121211']} />
         <ambientLight intensity={0.15} />
         <directionalLight position={[3, 4, 5]} intensity={1.6} />

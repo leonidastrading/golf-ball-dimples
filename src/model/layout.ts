@@ -340,35 +340,46 @@ export function buildLayout(d: DesignParams): DimpleLayout {
   const micro: boolean[] = pts.map(() => false);
 
   if (d.microDimples && de > 0) {
+    // interstitial sites: centroids of neighboring dimple triangles
     const seen = new Set<string>();
-    const meanR = rc.reduce((s, x) => s + x, 0) / n;
-    const cand: V3[] = [];
+    const meanTheta = theta0;
+    const cand: { c: V3; tri: number[] }[] = [];
     for (let i = 0; i < n; i++) {
       const ns = nbr[i];
       for (let a = 0; a < ns.length; a++)
         for (let b = a + 1; b < ns.length; b++) {
           const j = ns[a], k = ns[b];
           if (!dist.has(j * n + k)) continue;
+          // only true nearest-neighbor triangles (skip second-ring neighbors)
+          const lim = 1.3 * Math.max(nearestD[i], nearestD[j], nearestD[k]);
+          if (dist.get(i * n + j)! > lim || dist.get(i * n + k)! > lim || dist.get(j * n + k)! > lim) continue;
           const key = [i, j, k].sort((x, y) => x - y).join(',');
           if (seen.has(key)) continue;
           seen.add(key);
-          cand.push(norm([pts[i][0] + pts[j][0] + pts[k][0], pts[i][1] + pts[j][1] + pts[k][1], pts[i][2] + pts[j][2] + pts[k][2]]));
+          cand.push({ c: norm([pts[i][0] + pts[j][0] + pts[k][0], pts[i][1] + pts[j][1] + pts[k][1], pts[i][2] + pts[j][2] + pts[k][2]]), tri: [i, j, k] });
         }
     }
-    const placed: { p: V3; r: number }[] = [];
-    for (const c of cand) {
-      let gap = Infinity;
-      for (let m = 0; m < n; m++) {
-        const g = angle(c, pts[m]) - rc[m];
-        if (g < gap) gap = g;
+    // Dimple-cluster layouts space the primaries to leave room for the micro-dimples:
+    // trim each primary so a micro of the requested size fits in every adjacent gap.
+    const target = d.microSize * meanTheta;
+    const bound = d.shape === 'hex' ? 1 / Math.cos(Math.PI / 6) : 1; // hex corners reach further
+    for (const { c, tri } of cand)
+      for (const i of tri) {
+        const room = (angle(c, pts[i]) - 0.85 * target) / bound;
+        if (rc[i] > room) rc[i] = Math.max(0.3 * meanTheta, room);
       }
-      const mr = Math.min(0.9 * gap, 0.38 * meanR);
-      if (mr < 0.22 * meanR) continue;
+    const placed: { p: V3; r: number }[] = [];
+    for (const { c, tri } of cand) {
+      let gap = Infinity;
+      for (const m of tri) gap = Math.min(gap, angle(c, pts[m]) - rc[m] * bound);
+      for (const m of nbr[tri[0]]) gap = Math.min(gap, angle(c, pts[m]) - rc[m] * bound);
+      const mr = Math.min(target, 0.92 * gap);
+      if (mr < 0.6 * target) continue;
       if (placed.some((q) => angle(q.p, c) < q.r + mr)) continue;
       placed.push({ p: c, r: mr });
     }
     for (const q of placed) {
-      centers.push(q.p); radii.push(q.r); depths.push(de * 0.5); micro.push(true);
+      centers.push(q.p); radii.push(q.r); depths.push(de * 0.7); micro.push(true);
     }
   }
 

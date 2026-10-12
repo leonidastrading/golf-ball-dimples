@@ -21,6 +21,8 @@ export interface DesignParams {
   islandRatio: number;
   /** add micro-dimples in the land area between primary dimples */
   microDimples: boolean;
+  /** micro-dimple diameter as a fraction of the mean primary diameter */
+  microSize: number;
   /** paint layer thickness, inches */
   paintThickness: number;
   paintProcess: PaintProcess;
@@ -53,6 +55,7 @@ export const PROV1: DesignParams = {
   innerRatio: 0.5,
   islandRatio: 0.35,
   microDimples: false,
+  microSize: 0.3,
   paintThickness: 0.0005,
   paintProcess: 'spray',
   asymmetry: 'none',
@@ -85,7 +88,7 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   },
   {
     id: 'rb566', name: 'Mizuno RB 566', note: '566 dimple cluster with micro-dimples in the land area.',
-    params: { ...PROV1, count: 566, pattern: 'fibonacci', diameter: 0.122, depth: 0.0068, microDimples: true, sizeVariation: 0.15 },
+    params: { ...PROV1, count: 566, pattern: 'fibonacci', diameter: 0.122, depth: 0.0068, microDimples: true, microSize: 0.35, sizeVariation: 0.15 },
   },
   {
     id: 'e12', name: 'Bridgestone e12 CONTACT', note: '326 Contact Force dimples with a raised central island.',

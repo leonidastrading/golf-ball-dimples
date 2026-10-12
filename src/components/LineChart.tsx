@@ -58,7 +58,7 @@ export function LineChart({
     else {
       const pad = (y1 - y0) * 0.08 || 1;
       y1 += pad;
-      if (y0 > 0 && y0 < (y1 - y0) * 0.6) y0 = 0; else y0 -= pad;
+      if (y0 >= 0 && y0 < (y1 - y0) * 0.6) y0 = 0; else y0 -= pad;
       if (symmetricY) { const a = Math.max(Math.abs(y0), Math.abs(y1), 1); y0 = -a; y1 = a; }
     }
     return { x0, x1, y0, y1 };

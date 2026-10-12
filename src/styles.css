@@ -164,3 +164,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
   .topbar-controls { width: 100%; }
   .topbar-controls label { flex: 1 1 140px; }
 }
+
+.flight-table thead th { white-space: nowrap; }
+.flight-table thead .swatch { vertical-align: -1px; margin-right: 4px; }
+.flight-table td:last-child { color: var(--text-secondary); }
+.flight-table td.diff-zero { color: var(--text-muted); }

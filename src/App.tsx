@@ -107,6 +107,7 @@ export default function App() {
 
   const designLabel = presetId ? (ALL_PRESETS.find((p) => p.id === presetId)?.name.replace(' (baseline)', '') ?? 'Your design') : 'Your design';
   const coverage = feat.coverage * 100;
+  const maxCoverage = useMemo(() => coverageAt(d, 0.4) * 100, [d.pattern, d.count, d.sizeVariation, d.shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = achievableCounts(design.pattern);
   const symPass = checks.symCarry < 3 && checks.symTime < 0.2;
   const conforming = symPass && design.asymmetry === 'none';
@@ -136,8 +137,30 @@ export default function App() {
     } catch { /* clipboard blocked */ }
   };
 
-  const traj = (pts: typeof flight.points, key: 'z' | 'y') => pts.map((p) => ({ x: p.x, y: p[key] }));
-  const maxX = Math.max(flight.carry, cFlight.carry) * 1.04;
+  // flight path plus the bounce-and-roll run along the ground to the resting point
+  const traj = (f: typeof flight, key: 'z' | 'y') => [
+    ...f.points.map((p) => ({ x: p.x, y: p[key] })),
+    { x: f.total, y: key === 'z' ? 0 : f.lateral },
+  ];
+  const maxX = Math.max(flight.total, cFlight.total) * 1.03;
+  const maxApex = Math.max(flight.apex, cFlight.apex, 1);
+  // plot area is 516 × 176 SVG units (see LineChart); y domain pads the apex by 8%
+  const vScale = Math.max(1, Math.round((maxX / 516) / ((maxApex * 1.08) / 176)));
+
+  const rows: { label: string; v: number; c: number; unit: string; d?: number; hint?: string }[] = [
+    { label: 'Carry', v: flight.carry, c: cFlight.carry, unit: 'yd' },
+    { label: 'Roll', v: flight.roll, c: cFlight.roll, unit: 'yd' },
+    { label: 'Total', v: flight.total, c: cFlight.total, unit: 'yd' },
+    { label: 'Apex height', v: flight.apex, c: cFlight.apex, unit: 'yd' },
+    { label: 'Hang time', v: flight.hang, c: cFlight.hang, unit: 's', d: 2 },
+    { label: 'Descent angle', v: flight.descent, c: cFlight.descent, unit: '°' },
+    { label: 'Landing speed', v: flight.landSpeed, c: cFlight.landSpeed, unit: 'mph' },
+    { label: 'Spin at landing', v: flight.points[flight.points.length - 1].spin, c: cFlight.points[cFlight.points.length - 1].spin, unit: 'rpm', d: 0 },
+    { label: 'Offline at landing', v: flight.carryLateral, c: cFlight.carryLateral, unit: 'yd' },
+    { label: 'Offline at rest', v: flight.lateral, c: cFlight.lateral, unit: 'yd' },
+    { label: 'Launch Cd', v: flight.launchCd, c: cFlight.launchCd, unit: '', d: 3 },
+    { label: 'Launch Cl', v: flight.launchCl, c: cFlight.launchCl, unit: '', d: 3 },
+  ];
 
   const metrics: { label: string; v: number; c: number; unit: string; d?: number }[] = [
     { label: 'Carry', v: flight.carry, c: cFlight.carry, unit: 'yd' },
@@ -234,7 +257,7 @@ export default function App() {
               decimals={1}
               unit="%"
               onChange={(v) => set('diameter', diameterForCoverage(design, v / 100))}
-              hint={feat.clampedFraction > 0.05 ? `${Math.round(feat.clampedFraction * 100)}% of dimples are trimmed to avoid overlapping neighbors — max ≈ ${(coverageAt(design, 0.4) * 100).toFixed(0)}%.` : 'Linked to diameter: changing one updates the other.'}
+              hint={feat.clampedFraction > 0.05 ? `${Math.round(feat.clampedFraction * 100)}% of dimples are trimmed to avoid overlapping neighbors — max ≈ ${maxCoverage.toFixed(0)}%.` : 'Linked to diameter: changing one updates the other.'}
             />
             <Slider
               label="Depth"
@@ -260,6 +283,18 @@ export default function App() {
 
           <Section title="Surface & symmetry">
             <Toggle label="Micro-dimples in land area" checked={design.microDimples} onChange={(v) => set('microDimples', v)} hint="Small dimples in the gaps between primaries (dimple-cluster) — energize the boundary layer late in flight." />
+            {design.microDimples && (
+              <Slider
+                label="Micro-dimple size"
+                value={design.microSize * 100}
+                min={20}
+                max={60}
+                step={1}
+                unit="% of primary"
+                onChange={(v) => set('microSize', v / 100)}
+                hint={`${feat.microCount} micro-dimples placed. Primary dimples are trimmed where needed to make room.`}
+              />
+            )}
             <Segmented
               label="Paint process"
               value={design.paintProcess}
@@ -333,6 +368,33 @@ export default function App() {
                 ))}
               </div>
 
+              <table className="spec flight-table">
+                <caption>Flight comparison</caption>
+                <thead>
+                  <tr>
+                    <th scope="col" />
+                    <th scope="col"><span className="swatch" style={{ background: C1 }} /> {designLabel}</th>
+                    <th scope="col"><span className="swatch dashed" style={{ borderColor: C2 }} /> {compare.name}</th>
+                    <th scope="col">Difference</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r) => {
+                    const dd = r.d ?? 1;
+                    const diff = r.v - r.c;
+                    const pct = Math.abs(r.c) > 1e-6 && r.unit !== '°' ? ` (${signed((diff / Math.abs(r.c)) * 100, 1)}%)` : '';
+                    return (
+                      <tr key={r.label}>
+                        <th scope="row">{r.label}</th>
+                        <td>{fmt(r.v, dd)} {r.unit}</td>
+                        <td>{fmt(r.c, dd)} {r.unit}</td>
+                        <td className={Math.abs(diff) < 0.5 * 10 ** -dd ? 'diff-zero' : ''}>{signed(diff, dd)} {r.unit}{Math.abs(diff) >= 0.5 * 10 ** -dd ? pct : ''}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+
               <table className="spec">
                 <caption>Design readout</caption>
                 <thead><tr><th scope="col" /><th scope="col">Design</th><th scope="col">Compare</th></tr></thead>
@@ -377,12 +439,12 @@ export default function App() {
 
           <section className="charts">
             <LineChart
-              title="Trajectory — side view"
-              xLabel="Distance" xUnit="yd" yLabel="Height" yUnit="yd"
+              title="Trajectory — side view (flight + roll)"
+              xLabel="Distance" xUnit="yd" yLabel={`Height (yd) · vertical scale ×${vScale}`}
               xDomain={[0, maxX]}
               series={[
-                { id: 'd', label: designLabel, color: C1, points: traj(flight.points, 'z') },
-                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight.points, 'z') },
+                { id: 'd', label: designLabel, color: C1, points: traj(flight, 'z') },
+                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'z') },
               ]}
             />
             <LineChart
@@ -391,8 +453,8 @@ export default function App() {
               xDomain={[0, maxX]}
               symmetricY
               series={[
-                { id: 'd', label: designLabel, color: C1, points: traj(flight.points, 'y') },
-                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight.points, 'y') },
+                { id: 'd', label: designLabel, color: C1, points: traj(flight, 'y') },
+                { id: 'c', label: compare.name, color: C2, dashed: true, points: traj(cFlight, 'y') },
               ]}
             />
             <LineChart

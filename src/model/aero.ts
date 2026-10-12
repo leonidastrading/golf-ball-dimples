@@ -30,8 +30,8 @@ export interface AeroModel {
   spinMult: number; // impact effects on launch spin
 }
 
-// calibrated so the Pro V1 baseline + Tour driver launch gives ≈275 yd carry / 32 yd apex
-export const CAL = { CD0: 0.21, CL_A: 0.43, RE_C0: 6.0e4 };
+// calibrated so the Pro V1 baseline matches PGA Tour driver, 7-iron and PW averages (carry, apex, descent)
+export const CAL = { CD0: 0.2, CL_A: 0.43, CD_SPIN: 0.33, RE_C0: 4.2e4 };
 
 let baseFeat: DesignFeatures | null = null;
 export function baselineFeatures(): DesignFeatures {
@@ -52,7 +52,7 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   };
   let trip = kd * Math.pow(cov / b.coverage, 0.8) * Math.pow(edge, 0.3) * shapeTrip[d.shape];
   if (d.microDimples) trip *= 1.12;
-  const reCrit = trip <= 1e-4 ? 3.2e5 : Math.min(3.2e5, Math.max(3.0e4, CAL.RE_C0 / Math.pow(trip, 0.9)));
+  const reCrit = trip <= 1e-4 ? 3.2e5 : Math.min(3.2e5, Math.max(2.5e4, CAL.RE_C0 / Math.pow(trip, 0.9)));
 
   // --- post-critical drag
   let cd0 = CAL.CD0;
@@ -111,11 +111,12 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   const speedMult = d.shape === 'raised' ? 1.004 : 1;
   const spinMult = d.shape === 'raised' ? 0.96 : 1;
 
-  return { reCrit, cd0, cdSpin: 0.18, cdReSlope, clA: CAL.CL_A, clMult, lowLift, lowDrag, sideMult, spinTau, speedMult, spinMult };
+  return { reCrit, cd0, cdSpin: CAL.CD_SPIN, cdReSlope, clA: CAL.CL_A, clMult, lowLift, lowDrag, sideMult, spinTau, speedMult, spinMult };
 }
 
 function transition(m: AeroModel, re: number) {
-  return 1 / (1 + Math.exp(-(Math.log(re) - Math.log(m.reCrit)) / 0.15));
+  // a sharp transition: dimpled balls sit on the post-critical plateau until Re falls near Re_crit
+  return 1 / (1 + Math.exp(-(Math.log(re) - Math.log(m.reCrit)) / 0.08));
 }
 
 function lowFactor(re: number) {
