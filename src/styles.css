@@ -74,6 +74,8 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { background: var(--surface-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
 .chip:hover { border-color: var(--accent); }
+.chip.on { background: color-mix(in oklab, var(--accent) 28%, var(--surface-2)); border-color: var(--accent); color: var(--text-primary); font-weight: 600; }
+.chip.static { cursor: default; }
 
 .main { padding: 16px 20px 40px; display: flex; flex-direction: column; gap: 20px; min-width: 0; }
 .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 16px; }
@@ -182,8 +184,9 @@ input[type="range"] { width: 100%; accent-color: var(--accent); margin: 2px 0; }
 .opt-result ul { margin: 0; padding-left: 16px; color: var(--text-secondary); font-size: 12.5px; display: flex; flex-direction: column; gap: 2px; }
 
 .xsec { width: 100%; height: auto; display: block; }
-.xsec-label { fill: var(--text-primary); font-size: 11px; font-weight: 600; }
-.xsec-sub { fill: var(--text-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.xsec-label { fill: var(--text-primary); font-size: 14px; font-weight: 600; }
+.xsec-mat { fill: var(--text-secondary); font-size: 12.5px; }
+.xsec-sub { fill: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
 .layer { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; }
 .layer select { width: 100%; max-width: none; min-width: 0; }
 .layer-head { display: flex; align-items: center; gap: 8px; font-size: 13px; }

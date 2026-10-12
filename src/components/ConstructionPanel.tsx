@@ -19,10 +19,10 @@ function layerName(i: number, n: number) {
 /** True-scale half cross-section of the layers. */
 function CrossSection({ c }: { c: Construction }) {
   const p = analyze(c);
-  const S = 220, cx = 8, cy = S / 2, scale = (S / 2 - 6) / 0.84;
+  const S = 240, cx = 8, cy = S / 2, scale = (S / 2 - 6) / 0.84;
   const n = c.layers.length;
   return (
-    <svg viewBox={`0 0 ${S + 150} ${S}`} className="xsec" role="img" aria-label="Ball cross-section showing each layer">
+    <svg viewBox={`0 0 ${S + 196} ${S}`} className="xsec" role="img" aria-label="Ball cross-section showing each layer">
       {c.layers.map((_, i) => i).reverse().map((i) => {
         const r = p.radii[i] * scale;
         return <path key={i} d={`M ${cx} ${cy - r} A ${r} ${r} 0 0 1 ${cx} ${cy + r} Z`} fill={MATERIALS[c.layers[i].material].color} stroke="var(--surface-1)" strokeWidth={0.6} />;
@@ -33,14 +33,15 @@ function CrossSection({ c }: { c: Construction }) {
         const rm = (rIn + rOut) / 2;
         const ang = (-60 + (120 * (i + 0.5)) / n) * (Math.PI / 180);
         const x = cx + rm * Math.cos(ang), y = cy + rm * Math.sin(ang);
-        const ly = 18 + ((S - 30) * i) / Math.max(1, n - 1);
+        const ly = 22 + ((S - 44) * i) / Math.max(1, n - 1);
         const t = i === 0 ? `⌀ ${p.coreDiameter.toFixed(3)} in` : `${l.thickness.toFixed(3)} in · ${(l.thickness * 25.4).toFixed(2)} mm`;
         return (
           <g key={i}>
             <circle cx={x} cy={y} r={2} fill="var(--text-primary)" />
             <polyline points={`${x},${y} ${S - 18},${ly} ${S - 8},${ly}`} fill="none" stroke="var(--text-muted)" strokeWidth={0.8} />
-            <text x={S - 4} y={ly - 2} className="xsec-label">{layerName(i, n)}</text>
-            <text x={S - 4} y={ly + 10} className="xsec-sub">{t}</text>
+            <text x={S - 4} y={ly - 10} className="xsec-label">{layerName(i, n)}</text>
+            <text x={S - 4} y={ly + 4} className="xsec-mat">{MATERIALS[l.material].name}</text>
+            <text x={S - 4} y={ly + 18} className="xsec-sub">{t}</text>
           </g>
         );
       })}
@@ -48,9 +49,18 @@ function CrossSection({ c }: { c: Construction }) {
   );
 }
 
+function sameConstruction(a: Construction, b: Construction) {
+  return (
+    Math.abs(a.weight - b.weight) < 1e-6 &&
+    a.layers.length === b.layers.length &&
+    a.layers.every((l, i) => l.material === b.layers[i].material && (i === 0 || Math.abs(l.thickness - b.layers[i].thickness) < 1e-6))
+  );
+}
+
 export function ConstructionPanel({ value, onChange }: Props) {
   const p = analyze(value);
   const n = value.layers.length;
+  const active = CONSTRUCTION_PRESETS.find((cp) => sameConstruction(cp.c, value));
   const setLayer = (i: number, patch: Partial<Construction['layers'][number]>) =>
     onChange({ ...value, layers: value.layers.map((l, j) => (j === i ? { ...l, ...patch } : l)) });
   const addMantle = () => {
@@ -68,10 +78,17 @@ export function ConstructionPanel({ value, onChange }: Props) {
         Your launch numbers are treated as Pro V1 numbers; construction shifts them.
       </div>
       <div className="chips">
-        {CONSTRUCTION_PRESETS.map((cp) => (
-          <button key={cp.id} type="button" className="chip" title={cp.note} onClick={() => onChange(cp.c)}>{cp.name}</button>
-        ))}
+        {CONSTRUCTION_PRESETS.map((cp) => {
+          const on = sameConstruction(cp.c, value);
+          return (
+            <button key={cp.id} type="button" className={`chip ${on ? 'on' : ''}`} aria-pressed={on} title={cp.note} onClick={() => onChange(cp.c)}>
+              {on && <span aria-hidden>✓ </span>}{cp.name}
+            </button>
+          );
+        })}
+        {!active && <span className="chip on static" aria-label="Custom construction selected">✓ Custom ({n}-piece)</span>}
       </div>
+      <div className="hint">{active ? active.note : 'Edited from a preset — pick a preset above to reset.'}</div>
       <CrossSection c={value} />
       {value.layers.map((l, i) => {
         const mats = i === 0 ? CORE_MATS : LAYER_MATS;

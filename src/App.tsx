@@ -369,9 +369,14 @@ export default function App() {
 
           <Section title="Launch">
             <div className="chips">
-              {LAUNCH_PRESETS.map((p) => (
-                <button key={p.id} type="button" className="chip" onClick={() => setLaunch((l) => ({ ...l, ...p.params }))}>{p.name}</button>
-              ))}
+              {LAUNCH_PRESETS.map((p) => {
+                const on = (Object.keys(p.params) as (keyof LaunchParams)[]).every((k) => Math.abs((launch[k] as number) - (p.params[k] as number)) < 1e-6);
+                return (
+                  <button key={p.id} type="button" className={`chip ${on ? 'on' : ''}`} aria-pressed={on} onClick={() => setLaunch((l) => ({ ...l, ...p.params }))}>
+                    {on && <span aria-hidden>✓ </span>}{p.name}
+                  </button>
+                );
+              })}
             </div>
             <Slider label="Ball speed" value={launch.ballSpeed} min={60} max={200} step={0.5} decimals={1} unit="mph" onChange={(v) => setL('ballSpeed', v)} />
             <Slider label="Launch angle" value={launch.launchAngle} min={0} max={40} step={0.1} decimals={1} unit="°" onChange={(v) => setL('launchAngle', v)} />
