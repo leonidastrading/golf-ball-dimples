@@ -1,6 +1,7 @@
 import { buildAero } from './aero';
 import { simulate } from './flight';
 import { buildLayout, features, snapCount } from './layout';
+import { CONSTRUCTION_PRESETS, constructionEffects } from './construction';
 import { DEFAULT_LAUNCH, type DesignParams, type DimpleShape, type LaunchParams, type Pattern } from './types';
 
 export interface OptimizeRequest {
@@ -56,6 +57,9 @@ const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.min(hi, M
 
 export function evaluate(d: DesignParams, req: OptimizeRequest): Candidate | null {
   if (d.depth <= 0) return null;
+  const ce = constructionEffects(d.construction);
+  // conforming construction: weight limit and (estimated) initial-velocity limit
+  if (!ce.valid || ce.massG > 45.93 + 1e-6 || ce.speedMult > 1.015) return null;
   const L = buildLayout(d);
   const f = features(d, L);
   const a = buildAero(d, f, 'A');
@@ -119,6 +123,7 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
       microDimples: rand() < 0.3,
       microSize: lerp('microSize'),
       paintProcess: rand() < 0.5 ? 'spray' : 'microcoat',
+      construction: rand() < 0.35 ? base.construction : CONSTRUCTION_PRESETS[Math.floor(rand() * CONSTRUCTION_PRESETS.length)].c,
     };
     consider(d);
     if (i % 4 === 0) yield { type: 'progress', done, budget: req.budget, best };
@@ -136,7 +141,7 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
     let used = 0;
     while (used < perSeed) {
       let improved = false;
-      const keys: (NumKey | 'count' | 'sizeVariation' | 'micro' | 'paint')[] = ['diameter', 'depth', 'count', 'sizeVariation', 'paint'];
+      const keys: (NumKey | 'count' | 'sizeVariation' | 'micro' | 'paint' | 'construction')[] = ['diameter', 'depth', 'count', 'sizeVariation', 'paint', 'construction'];
       if (cur.params.shape === 'spherical' || cur.params.shape === 'flat') keys.push('wallSteepness');
       if (cur.params.shape === 'dual') keys.push('innerRatio');
       if (cur.params.shape === 'raised') keys.push('islandRatio');
@@ -156,6 +161,8 @@ export function* optimize(req: OptimizeRequest): Generator<OptimizeMessage, void
           for (const j of [i - 1, i + 1]) if (j >= 0 && j < SIZE_VAR.length) tries.push({ ...p, sizeVariation: SIZE_VAR[j] });
         } else if (k === 'micro') {
           tries.push({ ...p, microDimples: !p.microDimples });
+        } else if (k === 'construction') {
+          for (const cp of CONSTRUCTION_PRESETS) if (cp.c !== p.construction) tries.push({ ...p, construction: cp.c });
         } else if (k === 'paint') {
           tries.push({ ...p, paintProcess: p.paintProcess === 'spray' ? 'microcoat' : 'spray' });
         } else {

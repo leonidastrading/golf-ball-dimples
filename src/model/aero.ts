@@ -1,4 +1,5 @@
 import { buildLayout, features, type DesignFeatures } from './layout';
+import { constructionEffects } from './construction';
 import { PROV1, type DesignParams } from './types';
 
 /**
@@ -27,7 +28,12 @@ export interface AeroModel {
   sideMult: number;
   spinTau: number; // s
   speedMult: number; // impact effects on launch ball speed
-  spinMult: number; // impact effects on launch spin
+  spinMult: number; // impact effects on launch spin (dimple contact area)
+  /** construction: spin multipliers for driver-like and wedge-like launches */
+  driverSpinMult: number;
+  wedgeSpinMult: number;
+  launchDelta: number; // deg
+  massKg: number;
 }
 
 // calibrated so the Pro V1 baseline matches PGA Tour driver, 7-iron and PW averages (carry, apex, descent)
@@ -108,10 +114,15 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   if (d.microDimples) spinTau /= 1.05;
 
   // impact: raised-center dimples increase face contact area
-  const speedMult = d.shape === 'raised' ? 1.004 : 1;
+  const ce = constructionEffects(d.construction);
+  spinTau *= ce.spinTauMult;
+  const speedMult = (d.shape === 'raised' ? 1.004 : 1) * ce.speedMult;
   const spinMult = d.shape === 'raised' ? 0.96 : 1;
 
-  return { reCrit, cd0, cdSpin: CAL.CD_SPIN, cdReSlope, clA: CAL.CL_A, clMult, lowLift, lowDrag, sideMult, spinTau, speedMult, spinMult };
+  return {
+    reCrit, cd0, cdSpin: CAL.CD_SPIN, cdReSlope, clA: CAL.CL_A, clMult, lowLift, lowDrag, sideMult, spinTau, speedMult, spinMult,
+    driverSpinMult: ce.driverSpinMult, wedgeSpinMult: ce.wedgeSpinMult, launchDelta: ce.launchDelta, massKg: ce.massKg,
+  };
 }
 
 function transition(m: AeroModel, re: number) {

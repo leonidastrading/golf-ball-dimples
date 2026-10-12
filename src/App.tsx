@@ -3,6 +3,8 @@ import { BallViewer } from './components/BallViewer';
 import { Section, Segmented, Slider, Toggle } from './components/Controls';
 import { LineChart } from './components/LineChart';
 import { Optimizer } from './components/Optimizer';
+import { ConstructionPanel } from './components/ConstructionPanel';
+import { constructionEffects } from './model/construction';
 import { ProfileChart } from './components/ProfileChart';
 import { buildAero } from './model/aero';
 import { air, coefficientSweep, simulate } from './model/flight';
@@ -111,7 +113,11 @@ export default function App() {
   const maxCoverage = useMemo(() => coverageAt(d, 0.4) * 100, [d.pattern, d.count, d.sizeVariation, d.shape]); // eslint-disable-line react-hooks/exhaustive-deps
   const counts = achievableCounts(design.pattern);
   const symPass = checks.symCarry < 3 && checks.symTime < 0.2;
-  const conforming = symPass && design.asymmetry === 'none';
+  const ce = useMemo(() => constructionEffects(d.construction), [d.construction]);
+  const cce = useMemo(() => constructionEffects(compare.params.construction), [compare]);
+  const weightOk = ce.massG <= 45.93 + 1e-6;
+  const ivOk = ce.speedMult <= 1.015;
+  const conforming = symPass && design.asymmetry === 'none' && weightOk && ivOk && ce.valid;
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -149,6 +155,9 @@ export default function App() {
   const vScale = Math.max(1, Math.round((maxX / 516) / ((maxApex * 1.08) / 176)));
 
   const rows: { label: string; v: number; c: number; unit: string; d?: number; hint?: string }[] = [
+    { label: 'Ball speed (launch)', v: flight.launchSpeed, c: cFlight.launchSpeed, unit: 'mph' },
+    { label: 'Launch angle', v: flight.launchAngle, c: cFlight.launchAngle, unit: '°' },
+    { label: 'Launch spin', v: flight.launchSpin, c: cFlight.launchSpin, unit: 'rpm', d: 0 },
     { label: 'Carry', v: flight.carry, c: cFlight.carry, unit: 'yd' },
     { label: 'Roll', v: flight.roll, c: cFlight.roll, unit: 'yd' },
     { label: 'Total', v: flight.total, c: cFlight.total, unit: 'yd' },
@@ -322,6 +331,8 @@ export default function App() {
             />
           </Section>
 
+          <ConstructionPanel value={design.construction} onChange={(c) => set('construction', c)} />
+
           <Section title="Launch">
             <div className="chips">
               {LAUNCH_PRESETS.map((p) => (
@@ -424,6 +435,9 @@ export default function App() {
                 <caption>Design readout</caption>
                 <thead><tr><th scope="col" /><th scope="col">Design</th><th scope="col">Compare</th></tr></thead>
                 <tbody>
+                  <tr><th scope="row">Construction</th><td>{ce.pieces}-piece · {ce.massG.toFixed(2)} g</td><td>{cce.pieces}-piece · {cce.massG.toFixed(2)} g</td></tr>
+                  <tr><th scope="row">Compression (est.)</th><td>{ce.compression.toFixed(0)}</td><td>{cce.compression.toFixed(0)}</td></tr>
+                  <tr><th scope="row">Weight distribution (MOI)</th><td>{ce.moiIndex.toFixed(3)}</td><td>{cce.moiIndex.toFixed(3)}</td></tr>
                   <tr><th scope="row">Dimples</th><td>{feat.count}{feat.microCount ? ` + ${feat.microCount} micro` : ''}</td><td>{cFeat.count}{cFeat.microCount ? ` + ${cFeat.microCount} micro` : ''}</td></tr>
                   <tr><th scope="row">Coverage</th><td>{fmt(feat.coverage * 100)}%</td><td>{fmt(cFeat.coverage * 100)}%</td></tr>
                   <tr><th scope="row">Diameter range</th><td>{feat.minDiameter.toFixed(3)}–{feat.maxDiameter.toFixed(3)} in</td><td>{cFeat.minDiameter.toFixed(3)}–{cFeat.maxDiameter.toFixed(3)} in</td></tr>
@@ -455,7 +469,16 @@ export default function App() {
                   <span className="check-icon" aria-hidden>{conforming ? '✓' : '✕'}</span>
                   <div>
                     <strong>{conforming ? 'Conforming layout' : 'Non-conforming'}</strong>
-                    <span>{conforming ? 'Spherically symmetric (Rule 4.4)' : 'Asymmetric flight behavior breaches Rule 4.4'}</span>
+                    <span>
+                      {conforming
+                        ? `Symmetric · ${ce.massG.toFixed(2)} g · initial velocity ${signed((ce.speedMult - 1) * 100, 1)}% vs Pro V1`
+                        : [
+                            design.asymmetry !== 'none' || !symPass ? 'asymmetric flight breaches Rule 4.4' : '',
+                            !weightOk ? `weighs ${ce.massG.toFixed(2)} g (max 45.93)` : '',
+                            !ivOk ? `ball speed ${signed((ce.speedMult - 1) * 100, 1)}% vs Pro V1 likely exceeds the initial-velocity limit` : '',
+                            !ce.valid ? ce.problem ?? '' : '',
+                          ].filter(Boolean).join(' · ')}
+                    </span>
                   </div>
                 </div>
               </div>

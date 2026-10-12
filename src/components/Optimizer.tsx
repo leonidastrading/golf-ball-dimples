@@ -61,7 +61,7 @@ export function Optimizer({ design, launch, onApply }: Props) {
 
   return (
     <Section title="Optimizer">
-      <div className="hint">Searches dimple count, pattern, shape, diameter, depth, size variation, wall shape, micro-dimples and paint for the longest ball at the current launch and conditions. Only USGA-symmetric designs are considered.</div>
+      <div className="hint">Searches dimple count, pattern, shape, diameter, depth, size variation, wall shape, micro-dimples, paint and layer construction for the longest ball at the current launch and conditions. Only USGA-symmetric designs are considered.</div>
       <Segmented label="Maximize" value={objective} options={[{ value: 'total', label: 'Total distance' }, { value: 'carry', label: 'Carry' }]} onChange={setObjective} />
       <Segmented label="Search" value={depthMode} options={[{ value: 'quick', label: 'Quick (~160 designs)' }, { value: 'thorough', label: 'Thorough (~420)' }]} onChange={setDepthMode} />
       <Toggle label={`Keep current shape (${SHAPE_LABEL[design.shape]})`} checked={keepShape} onChange={setKeepShape} />
@@ -85,6 +85,7 @@ export function Optimizer({ design, launch, onApply }: Props) {
           <ul>
             <li>{best.params.count} {SHAPE_LABEL[best.params.shape]} dimples, {best.params.pattern === 'fibonacci' ? 'spiral' : best.params.pattern} layout</li>
             <li>{best.params.diameter.toFixed(3)} in diameter · {best.params.depth.toFixed(4)} in deep</li>
+            <li>{best.params.construction.layers.length}-piece construction</li>
             <li>Size variation {Math.round(best.params.sizeVariation * 100)}%{best.params.microDimples ? ` · micro-dimples ${Math.round(best.params.microSize * 100)}%` : ''} · {best.params.paintProcess}</li>
             <li>Carry {best.carry.toFixed(1)} · total {best.total.toFixed(1)} · apex {best.apex.toFixed(1)} yd · ODS 2028 {best.ods.toFixed(0)} yd</li>
           </ul>

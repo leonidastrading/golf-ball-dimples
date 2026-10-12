@@ -1,3 +1,5 @@
+import { PROV1_CONSTRUCTION, type Construction } from './construction';
+
 export type Pattern = 'tetrahedral' | 'octahedral' | 'icosahedral' | 'fibonacci';
 export type DimpleShape = 'spherical' | 'conical' | 'dual' | 'raised' | 'hex' | 'flat';
 export type PaintProcess = 'spray' | 'microcoat';
@@ -29,6 +31,8 @@ export interface DesignParams {
   /** none = spherically symmetric; polara = deep equatorial band + shallow poles;
    *  hemispheric = deeper dimples on one hemisphere than the other */
   asymmetry: Asymmetry;
+  /** core / mantle / cover layers */
+  construction: Construction;
 }
 
 export interface LaunchParams {
@@ -59,6 +63,7 @@ export const PROV1: DesignParams = {
   paintThickness: 0.0005,
   paintProcess: 'spray',
   asymmetry: 'none',
+  construction: PROV1_CONSTRUCTION,
 };
 
 export interface DesignPreset {

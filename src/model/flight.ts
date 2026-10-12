@@ -1,9 +1,9 @@
 import { dragCoef, liftCoef, type AeroModel } from './aero';
+import { spinBlend } from './construction';
 import type { LaunchParams } from './types';
 
 const MPH = 0.44704;
 const YD = 0.9144;
-const BALL_MASS = 0.04593; // kg
 const BALL_D = 0.04267; // m
 const BALL_R = BALL_D / 2;
 const AREA = (Math.PI * BALL_D * BALL_D) / 4;
@@ -41,6 +41,9 @@ export interface TrajPoint {
 
 export interface FlightResult {
   points: TrajPoint[];
+  launchSpeed: number; // mph, after construction effects
+  launchSpin: number; // rpm
+  launchAngle: number; // deg
   carry: number;
   total: number;
   lateral: number; // at rest, yd
@@ -64,10 +67,11 @@ type Vec = [number, number, number];
  */
 export function simulate(m: AeroModel, l: LaunchParams, a: Air = air(l)): FlightResult {
   const v0 = l.ballSpeed * MPH * m.speedMult;
-  const la = (l.launchAngle * Math.PI) / 180;
+  // launch values are measured with a Pro V1; the ball's construction shifts them
+  const la = ((l.launchAngle + m.launchDelta) * Math.PI) / 180;
   let pos: Vec = [0, 0, 0];
   let vel: Vec = [v0 * Math.cos(la), 0, v0 * Math.sin(la)];
-  const omega0 = (l.spin * m.spinMult * 2 * Math.PI) / 60;
+  const omega0 = (l.spin * m.spinMult * spinBlend(m, l.spin) * 2 * Math.PI) / 60;
   const tilt = (l.spinAxis * Math.PI) / 180;
   // backspin axis points to the golfer's right (-y); tilting it makes the ball curve right for + tilt
   const axis: Vec = [0, -Math.cos(tilt), -Math.sin(tilt)];
@@ -76,7 +80,7 @@ export function simulate(m: AeroModel, l: LaunchParams, a: Air = air(l)): Flight
   // wind blows FROM windDir: 0 = from target (headwind), 90 = from the right
   const wind: Vec = [-ws * Math.cos(wd), ws * Math.sin(wd), 0];
 
-  const k = (0.5 * a.rho * AREA) / BALL_MASS;
+  const k = (0.5 * a.rho * AREA) / m.massKg;
 
   const accel = (p: Vec, v: Vec, t: number): { acc: Vec; re: number; cd: number; cl: number } => {
     const wf = p[2] < 0 ? 0 : Math.min(1, 0.6 + 0.4 * Math.pow(Math.max(p[2], 0.01) / 10, 0.15)); // wind gradient
@@ -176,6 +180,9 @@ export function simulate(m: AeroModel, l: LaunchParams, a: Air = air(l)): Flight
 
   return {
     points: pts,
+    launchSpeed: v0 / MPH,
+    launchSpin: (omega0 * 60) / (2 * Math.PI),
+    launchAngle: l.launchAngle + m.launchDelta,
     carry: carryX / YD,
     total: restX / YD,
     roll: dist / YD,
