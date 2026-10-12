@@ -1,0 +1,1 @@
+{"root":["./src/App.tsx","./src/main.tsx","./src/components/BallViewer.tsx","./src/components/Controls.tsx","./src/components/LineChart.tsx","./src/components/ProfileChart.tsx","./src/geometry/ball.worker.ts","./src/geometry/ballMesh.ts","./src/model/aero.ts","./src/model/flight.ts","./src/model/layout.ts","./src/model/types.ts"],"version":"5.9.3"}
