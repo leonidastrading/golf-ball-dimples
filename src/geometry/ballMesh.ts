@@ -82,6 +82,7 @@ export function buildMesh(req: MeshRequest): MeshResult {
   const P = new Float64Array(g * g * 3); // unit directions
   const H = new Float64Array(g * g); // depth (ball-radius units)
   const maxDepth = depths.reduce((m, x) => Math.max(m, x), 0) || 1;
+  const hexOpts: ProfileOpts = { ...opts, shape: 'hex' };
   const microOpts: ProfileOpts = { ...opts, shape: 'spherical', wallSteepness: 0.2 };
   const COS30 = Math.sqrt(3) / 2;
   const COS36 = Math.cos(Math.PI / 5);
@@ -124,7 +125,7 @@ export function buildMesh(req: MeshRequest): MeshResult {
       const fx = cy * ez - cz * ey, fy = cz * ex - cx * ez, fz = cx * ey - cy * ex;
       const r = radii[d];
       const depth = (depths[d] / BALL_RADIUS_IN) * exaggeration;
-      const po = isMicro[d] || round ? microOpts : opts;
+      const po = isMicro[d] || round ? microOpts : hex || pent ? hexOpts : opts;
       const cosR = Math.cos(rr);
       for (let j = j0; j <= j1; j++)
         for (let i = i0; i <= i1; i++) {
@@ -137,23 +138,18 @@ export function buildMesh(req: MeshRequest): MeshResult {
           const x = tx * ex + ty * ey + tz * ez;
           const y = tx * fx + ty * fy + tz * fz;
           let rho: number;
-          let h: number;
-          if (hex || pent) {
-            // smooth spherical bowl (measured to the corners) cut by a crisp, steep polygon wall
-            let m = -Infinity;
-            if (hex) m = Math.max(Math.abs(x), Math.abs(0.5 * x + COS30 * y), Math.abs(-0.5 * x + COS30 * y));
-            else for (let q = 0; q < 5; q++) m = Math.max(m, x * PENT_DIRS[q][0] + y * PENT_DIRS[q][1]);
+          if (hex) {
+            const m = Math.max(Math.abs(x), Math.abs(0.5 * x + COS30 * y), Math.abs(-0.5 * x + COS30 * y));
             rho = m / Math.tan(r);
-            if (rho >= 1) continue;
-            const re = Math.hypot(x, y) / (Math.tan(r) / (hex ? COS30 : COS36));
-            const bowl = 0.35 + 0.65 * (1 - re * re);
-            const wall = Math.min(1, (1 - rho) / 0.1);
-            h = Math.max(0, Math.min(bowl, wall * bowl)) * depth;
+          } else if (pent) {
+            let m = -Infinity;
+            for (let q = 0; q < 5; q++) m = Math.max(m, x * PENT_DIRS[q][0] + y * PENT_DIRS[q][1]);
+            rho = m / Math.tan(r);
           } else {
             rho = Math.hypot(x, y) / Math.tan(r);
-            if (rho >= 1) continue;
-            h = profile(rho, po) * depth;
           }
+          if (rho >= 1) continue;
+          const h = profile(rho, po) * depth;
           if (h > H[k]) H[k] = h;
         }
     }

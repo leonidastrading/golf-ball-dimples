@@ -39,8 +39,7 @@ export function profile(rho: number, o: ProfileOpts): number {
       return 1 - Math.pow(rho, p);
     }
     case 'hex':
-      // radial equivalent of the mesh's bowl-with-polygon-wall hex profile
-      return Math.min(1, (1 - rho) / 0.1) * (0.35 + 0.65 * (1 - rho * rho));
+      return 1 - Math.pow(rho, 2.4);
     case 'flat': {
       const p = 4 + 8 * o.wallSteepness;
       return 1 - Math.pow(rho, p);

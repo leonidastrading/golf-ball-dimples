@@ -104,11 +104,11 @@ export const DESIGN_PRESETS: DesignPreset[] = [
   },
   {
     id: 'hex', name: 'Hexagonal (HEX-style)', note: '332 hexagonal dimples tessellate with almost no land area.',
-    params: { ...PROV1, count: 332, pattern: 'icosahedral', shape: 'hex', diameter: 0.165, depth: 0.0061, sizeVariation: 0 },
+    params: { ...PROV1, count: 332, pattern: 'icosahedral', shape: 'hex', diameter: 0.165, depth: 0.0072, sizeVariation: 0 },
   },
   {
     id: 'chromesoft', name: 'Callaway Chrome Soft (2024-style)', note: 'Hexagons + 12 pentagons mixed with round dimples for flight stability (312 here; Callaway uses 332, which no icosahedral lattice produces).',
-    params: { ...PROV1, count: 312, pattern: 'icosahedral', shape: 'hex', diameter: 0.172, depth: 0.0058, sizeVariation: 0, roundMix: 0.18 },
+    params: { ...PROV1, count: 312, pattern: 'icosahedral', shape: 'hex', diameter: 0.172, depth: 0.0068, sizeVariation: 0, roundMix: 0.18 },
   },
   {
     id: 'polara', name: 'Polara (non-conforming)', note: 'Deep equatorial band, shallow poles — damps hooks and slices.',
@@ -144,7 +144,7 @@ export const PATENT_PRESETS: PatentPreset[] = [
     id: 'uniroyal', number: 'US 4,090,716', title: 'Golf ball', year: '1978 (filed 1976)', holder: 'Uniroyal — Martin & Pietraszek',
     summary: '252 depressions: 240 hexagonal-based and 12 pentagonal-based, the pentagons forming vertices of spherical triangles that divide the surface.',
     url: 'https://patents.google.com/patent/US4090716',
-    params: { ...PROV1, count: 252, pattern: 'icosahedral', shape: 'hex', diameter: 0.19, depth: 0.0081, sizeVariation: 0 },
+    params: { ...PROV1, count: 252, pattern: 'icosahedral', shape: 'hex', diameter: 0.19, depth: 0.0095, sizeVariation: 0 },
   },
   {
     id: 'nepela', number: 'US 3,819,190', title: 'Golf ball (Polara type)', year: '1970s', holder: 'Nepela et al.',
