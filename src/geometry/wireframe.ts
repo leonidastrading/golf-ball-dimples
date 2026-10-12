@@ -1,4 +1,4 @@
-import { cellPlanes, profile, KIND_PENT, KIND_ROUND, type CellPlane, type DimpleLayout, type ProfileOpts } from '../model/layout';
+import { cellPlanes, cellPolygon, profile, KIND_PENT, KIND_ROUND, type CellPlane, type DimpleLayout, type ProfileOpts } from '../model/layout';
 import { BALL_RADIUS_IN } from '../model/types';
 
 
@@ -67,9 +67,20 @@ export function buildWireframe(L: DimpleLayout, opts: ProfileOpts, exaggeration:
         prev = cur;
       }
     }
-    const nSp = poly === 5 && !planes ? Math.round(spokes / 6) * 5 : spokes;
-    for (let s = 0; s < nSp; s++) {
-      const th = (2 * Math.PI * s) / nSp;
+    // spokes: for cells, run to every corner and edge midpoint (like a CAD mesh); otherwise evenly spaced
+    let angles: number[];
+    if (planes) {
+      const pg = cellPolygon(planes, 4 * tr);
+      angles = [];
+      for (let k = 0; k < pg.length; k++) {
+        const a = pg[k], b = pg[(k + 1) % pg.length];
+        angles.push(Math.atan2(a[1], a[0]), Math.atan2((a[1] + b[1]) / 2, (a[0] + b[0]) / 2));
+      }
+    } else {
+      const nSp = poly === 5 ? Math.round(spokes / 6) * 5 : spokes;
+      angles = Array.from({ length: nSp }, (_, s) => (2 * Math.PI * s) / nSp);
+    }
+    for (const th of angles) {
       let prev = point(0, th);
       for (let i = 1; i <= spokeSeg; i++) {
         const cur = point(i / spokeSeg, th);

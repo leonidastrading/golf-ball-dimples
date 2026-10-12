@@ -260,6 +260,23 @@ export function cellPlanes(L: DimpleLayout, i: number): CellPlane[] {
   return out;
 }
 
+/** Corners of a cell polygon (tangent-plane coordinates), by clipping a large square with its edges. */
+export function cellPolygon(planes: CellPlane[], size: number): [number, number][] {
+  let poly: [number, number][] = [[-size, -size], [size, -size], [size, size], [-size, size]];
+  for (const q of planes) {
+    const out: [number, number][] = [];
+    for (let k = 0; k < poly.length; k++) {
+      const a = poly[k], b = poly[(k + 1) % poly.length];
+      const fa = a[0] * q.ux + a[1] * q.uy - q.h, fb = b[0] * q.ux + b[1] * q.uy - q.h;
+      if (fa <= 0) out.push(a);
+      if ((fa <= 0) !== (fb <= 0)) { const t = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+    }
+    poly = out;
+    if (poly.length < 3) break;
+  }
+  return poly;
+}
+
 export function cellRho(planes: CellPlane[], x: number, y: number) {
   let m = 0;
   for (const p of planes) { const v = (x * p.ux + y * p.uy) / p.h; if (v > m) m = v; }
@@ -353,8 +370,76 @@ function asymFactor(mode: DesignParams['asymmetry'], z: number) {
   return 1;
 }
 
+const lloydCache = new Map<string, V3[]>();
+
+/**
+ * Lloyd relaxation for a size-weighted cell tessellation: each center moves to the exact
+ * centroid of its cell polygon (clipped by the weighted bisectors in its tangent plane).
+ * Exact polygon centroids keep the seed's symmetry intact.
+ */
+function regularizedCells(d: DesignParams, seed: V3[], tiers: number[]): V3[] {
+  const key = `${d.pattern}|${d.count}|${d.sizeVariation.toFixed(3)}`;
+  const hit = lloydCache.get(key);
+  if (hit) return hit;
+  const n = seed.length;
+  const w = tiers.map((t) => 1 + d.sizeVariation * t);
+  const spacing = Math.sqrt((4 * Math.PI) / n);
+  let pts = seed.map((p) => [...p] as V3);
+  const nbr: number[][] = pts.map(() => []);
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++) if (angle(pts[i], pts[j]) < 2.0 * spacing) { nbr[i].push(j); nbr[j].push(i); }
+
+  for (let it = 0; it < 40; it++) {
+    const next: V3[] = [];
+    for (let i = 0; i < n; i++) {
+      const c = pts[i];
+      const t = Math.abs(c[2]) < 0.9 ? ([0, 0, 1] as V3) : ([1, 0, 0] as V3);
+      const dt = t[0] * c[0] + t[1] * c[1] + t[2] * c[2];
+      const e1 = norm([t[0] - dt * c[0], t[1] - dt * c[1], t[2] - dt * c[2]]);
+      const e2: V3 = [c[1] * e1[2] - c[2] * e1[1], c[2] * e1[0] - c[0] * e1[2], c[0] * e1[1] - c[1] * e1[0]];
+      const S = 3 * spacing;
+      let poly: [number, number][] = [[-S, -S], [S, -S], [S, S], [-S, S]];
+      for (const j of nbr[i]) {
+        const q = pts[j];
+        const dq = q[0] * c[0] + q[1] * c[1] + q[2] * c[2];
+        if (dq <= 0) continue;
+        const gx = q[0] / dq - c[0], gy = q[1] / dq - c[1], gz = q[2] / dq - c[2];
+        const x = gx * e1[0] + gy * e1[1] + gz * e1[2], y = gx * e2[0] + gy * e2[1] + gz * e2[2];
+        const len = Math.hypot(x, y);
+        const ux = x / len, uy = y / len, h = (len * w[i]) / (w[i] + w[j]);
+        // Sutherland–Hodgman clip against u·p <= h
+        const out: [number, number][] = [];
+        for (let k = 0; k < poly.length; k++) {
+          const a = poly[k], b = poly[(k + 1) % poly.length];
+          const fa = a[0] * ux + a[1] * uy - h, fb = b[0] * ux + b[1] * uy - h;
+          if (fa <= 0) out.push(a);
+          if ((fa <= 0) !== (fb <= 0)) { const s2 = fa / (fa - fb); out.push([a[0] + (b[0] - a[0]) * s2, a[1] + (b[1] - a[1]) * s2]); }
+        }
+        poly = out;
+        if (poly.length < 3) break;
+      }
+      let A = 0, cx = 0, cy = 0;
+      for (let k = 0; k < poly.length; k++) {
+        const a = poly[k], b = poly[(k + 1) % poly.length];
+        const cr = a[0] * b[1] - b[0] * a[1];
+        A += cr; cx += (a[0] + b[0]) * cr; cy += (a[1] + b[1]) * cr;
+      }
+      if (Math.abs(A) < 1e-12) { next.push(c); continue; }
+      cx /= 3 * A; cy /= 3 * A;
+      next.push(norm([c[0] + cx * e1[0] + cy * e2[0], c[1] + cx * e1[1] + cy * e2[1], c[2] + cx * e1[2] + cy * e2[2]]));
+    }
+    pts = next;
+  }
+  if (lloydCache.size > 100) lloydCache.clear();
+  lloydCache.set(key, pts);
+  return pts;
+}
+
 export function buildLayout(d: DesignParams): DimpleLayout {
-  const { pts, tiers } = positions(d);
+  const base = positions(d);
+  const tiers = base.tiers;
+  // hex cells: centroidal relaxation makes the cells as regular as the sphere allows
+  const pts = d.shape === 'hex' ? regularizedCells(d, base.pts, tiers) : base.pts;
   const n = pts.length;
   const theta0 = d.diameter / 2 / BALL_RADIUS_IN;
   const r = tiers.map((t) => theta0 * (1 + d.sizeVariation * t));
