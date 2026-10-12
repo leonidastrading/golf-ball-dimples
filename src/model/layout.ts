@@ -1,4 +1,4 @@
-import { BALL_DIAMETER_IN, BALL_RADIUS_IN, type DesignParams, type DimpleShape, type Pattern } from './types';
+import { BALL_DIAMETER_IN, BALL_RADIUS_IN, MIN_RIDGE_IN, type DesignParams, type DimpleShape, type Pattern } from './types';
 
 type V3 = [number, number, number];
 
@@ -472,7 +472,7 @@ export function buildLayout(d: DesignParams): DimpleLayout {
   }
 
   const cells = d.shape === 'hex';
-  const ridge = (d.ridgeWidth ?? 0.004) / BALL_RADIUS_IN;
+  const ridge = Math.max(MIN_RIDGE_IN, d.ridgeWidth ?? 0.004) / BALL_RADIUS_IN;
   if (cells) {
     // the cell fills the space to its neighbors: inscribed radius = half the closest neighbor gap
     clamped = 0;

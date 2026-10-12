@@ -41,7 +41,7 @@ const RANGE = {
   innerRatio: [0.3, 0.7],
   islandRatio: [0.2, 0.5],
   microSize: [0.2, 0.45],
-  ridgeWidth: [0.002, 0.015],
+  ridgeWidth: [0.003, 0.012],
 } as const;
 
 type NumKey = 'diameter' | 'depth' | 'wallSteepness' | 'innerRatio' | 'islandRatio' | 'microSize' | 'ridgeWidth';

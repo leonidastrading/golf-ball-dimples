@@ -63,8 +63,11 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   // --- post-critical drag
   let cd0 = CAL.CD0;
   const dc = cov - b.coverage;
-  // diminishing returns above the baseline: going from 80% to ~100% buys a few yards, not dozens
-  cd0 += dc < 0 ? -0.2 * dc + 0.25 * dc * dc : -0.06 * dc;
+  // Above the baseline the benefit levels off: there's little data past ~85% coverage, and
+  // tour balls in that range test within a few yards of each other. The excess saturates near
+  // 86% (6 points over the Pro V1), with only a small residual beyond.
+  const excess = dc > 0 ? 0.06 * Math.tanh(dc / 0.06) + 0.1 * Math.max(0, dc - 0.06) : 0;
+  cd0 += dc < 0 ? -0.2 * dc + 0.25 * dc * dc : -0.06 * excess;
   cd0 += 0.045 * (x - 1) * (x - 1) + 0.012 * (x - 1);
   const meanD = f.meanDiameter;
   if (meanD < 0.12) cd0 += 0.03 * ((0.12 - meanD) / 0.05) ** 2; // very small dimples trip poorly
@@ -82,7 +85,8 @@ export function buildAero(d: DesignParams, f: DesignFeatures, orientation: 'A' |
   if (d.shape === 'dual') cdReSlope *= 0.4; // inner cavity suppresses high-speed drag
 
   // --- lift
-  let clMult = Math.pow(Math.max(0.2, x), -0.45) * Math.pow(Math.max(0.05, cov) / b.coverage, 0.3);
+  // sparse coverage costs lift; coverage above the baseline doesn't add any
+  let clMult = Math.pow(Math.max(0.2, x), -0.45) * Math.pow(Math.min(1, Math.max(0.05, cov) / b.coverage), 0.3);
   const shapeCl: Record<DesignParams['shape'], number> = {
     spherical: 1, conical: 0.98, dual: 1.0, raised: 0.97, hex: 1.0, flat: 0.97,
   };

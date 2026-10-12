@@ -262,15 +262,15 @@ export default function App() {
               <>
                 <Slider
                   label="Ridge width"
-                  value={design.ridgeWidth * 1000}
-                  min={1}
+                  value={Math.max(3, design.ridgeWidth * 1000)}
+                  min={3}
                   max={25}
                   step={0.5}
                   decimals={1}
                   unit="thou"
                   display={`${(design.ridgeWidth * 25.4).toFixed(2)} mm`}
                   onChange={(v) => set('ridgeWidth', v / 1000)}
-                  hint={`Hex cells tile the ball edge to edge; only the raised ridges between them are flat land. Coverage ${coverage.toFixed(1)}% · cells ${feat.minDiameter.toFixed(3)}–${feat.maxDiameter.toFixed(3)} in across flats (set by the dimple count and size variation).`}
+                  hint={`Hex cells tile the ball edge to edge; only the raised ridges between them are flat land. 3 thou (0.08 mm) is about the narrowest ridge that molds and paints reliably. Coverage ${coverage.toFixed(1)}% · cells ${feat.minDiameter.toFixed(3)}–${feat.maxDiameter.toFixed(3)} in across flats (set by the dimple count and size variation).`}
                 />
               </>
             ) : (

@@ -214,4 +214,6 @@ export const LAUNCH_PRESETS: LaunchPreset[] = [
 ];
 
 export const BALL_DIAMETER_IN = 1.68;
+/** narrowest ridge between dimples that can be molded and painted reliably */
+export const MIN_RIDGE_IN = 0.003;
 export const BALL_RADIUS_IN = BALL_DIAMETER_IN / 2;
